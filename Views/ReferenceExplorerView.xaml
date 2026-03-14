@@ -39,20 +39,28 @@
                 <ColumnDefinition Width="3*" />
             </Grid.ColumnDefinitions>
 
-            <ListView Grid.Column="0"
-                      ItemsSource="{x:Bind FilteredReferences}"
-                      SelectedItem="{x:Bind SelectedReference, Mode=TwoWay}">
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="models:ReferenceItem">
-                        <StackPanel Padding="12"
-                                    Spacing="4">
-                            <TextBlock Text="{x:Bind Name}"
-                                       Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="{x:Bind Category}" />
-                        </StackPanel>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+            <Grid Grid.Column="0">
+                <ListView ItemsSource="{x:Bind FilteredReferences}"
+                          SelectedItem="{x:Bind SelectedReference, Mode=TwoWay}">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="models:ReferenceItem">
+                            <StackPanel Padding="12"
+                                        Spacing="4">
+                                <TextBlock Text="{x:Bind Name}"
+                                           Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind Category}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+                <TextBlock Text="No results found"
+                           Visibility="{x:Bind NoResultsVisibility, Mode=OneWay}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Style="{ThemeResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Grid>
 
             <ScrollViewer Grid.Column="1"
                           VerticalScrollBarVisibility="Auto">

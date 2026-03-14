@@ -60,6 +60,10 @@ public sealed partial class ReferenceExplorerView : UserControl, INotifyProperty
         ? Visibility.Collapsed
         : Visibility.Visible;
 
+    public Visibility NoResultsVisibility => string.IsNullOrWhiteSpace(ErrorMessage) && FilteredReferences.Count == 0
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
     public ReferenceItem SelectedReference
     {
         get => _selectedReference;
@@ -77,24 +81,19 @@ public sealed partial class ReferenceExplorerView : UserControl, INotifyProperty
 
     private void SearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
-        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
-        {
-            return;
-        }
-
         ApplyFilter(sender.Text);
     }
 
     private void ApplyFilter(string? searchText)
     {
         IEnumerable<ReferenceItem> matches = _allReferences;
+        ReferenceItem previousSelection = SelectedReference;
+        string normalizedSearchText = searchText?.Trim() ?? string.Empty;
 
-        if (!string.IsNullOrWhiteSpace(searchText))
+        if (!string.IsNullOrWhiteSpace(normalizedSearchText))
         {
             matches = matches.Where(reference =>
-                reference.Name.Contains(searchText, System.StringComparison.OrdinalIgnoreCase) ||
-                reference.Category.Contains(searchText, System.StringComparison.OrdinalIgnoreCase) ||
-                reference.Signature.Contains(searchText, System.StringComparison.OrdinalIgnoreCase));
+                Matches(reference, normalizedSearchText));
         }
 
         FilteredReferences.Clear();
@@ -104,7 +103,26 @@ public sealed partial class ReferenceExplorerView : UserControl, INotifyProperty
             FilteredReferences.Add(reference);
         }
 
-        SelectedReference = FilteredReferences.FirstOrDefault() ?? ReferenceItem.Empty;
+        SelectedReference = FilteredReferences.Contains(previousSelection)
+            ? previousSelection
+            : FilteredReferences.FirstOrDefault() ?? ReferenceItem.Empty;
+
+        OnPropertyChanged(nameof(NoResultsVisibility));
+    }
+
+    private static bool Matches(ReferenceItem reference, string searchText)
+    {
+        return Contains(reference.Name, searchText) ||
+               Contains(reference.Category, searchText) ||
+               Contains(reference.Signature, searchText) ||
+               Contains(reference.Imports, searchText) ||
+               Contains(reference.Notes, searchText);
+    }
+
+    private static bool Contains(string? value, string searchText)
+    {
+        return !string.IsNullOrEmpty(value) &&
+               value.Contains(searchText, StringComparison.OrdinalIgnoreCase);
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
