@@ -23,6 +23,10 @@ public sealed partial class MainShellView : UserControl
     {
         _peopleCodeInterfaceView.SetSession(session);
         _peopleCodeInterfaceView.ShowAppPackage();
+        if (App.MainWindow is MainWindow mainWindow)
+        {
+            mainWindow.UpdateConnectionTitle(session);
+        }
         ContentHost.Content = _peopleCodeInterfaceView;
         AppNavigationView.SelectedItem = PeopleCodeInterfaceNavigationItem;
     }

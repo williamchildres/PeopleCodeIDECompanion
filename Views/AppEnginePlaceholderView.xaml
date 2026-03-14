@@ -7,7 +7,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid RowSpacing="16"
+    <Grid RowSpacing="12"
           ColumnSpacing="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -15,31 +15,14 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0"
-              ColumnSpacing="16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <StackPanel Spacing="6">
-                <TextBlock Text="App Engine"
-                           Style="{ThemeResource TitleTextBlockStyle}" />
-                <TextBlock x:Name="ConnectionStateTextBlock"
-                           Text="Connect from the Oracle Connection screen to load App Engine PeopleCode."
-                           TextWrapping="WrapWholeWords" />
-                <TextBlock x:Name="StructureNoteTextBlock"
-                           Text="Read-only App Engine browsing uses the PeopleCode text tables and a practical Program / Section / Step / Action structure."
-                           TextWrapping="WrapWholeWords"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            </StackPanel>
-
+        <StackPanel Grid.Row="0"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
             <Button x:Name="RefreshButton"
-                    Grid.Column="1"
                     Content="Refresh"
                     IsEnabled="False"
                     Click="RefreshButton_Click" />
-        </Grid>
+        </StackPanel>
 
         <InfoBar x:Name="InlineErrorInfoBar"
                  Grid.Row="1"

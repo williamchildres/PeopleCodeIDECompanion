@@ -48,10 +48,6 @@ public sealed partial class AppEnginePlaceholderView : UserControl
     public void SetSession(OracleConnectionSession session)
     {
         _session = session;
-        string profileLabel = string.IsNullOrWhiteSpace(session.DisplayName)
-            ? $"as {session.Options.Username} to {session.Options.Host}:{session.Options.Port}/{session.Options.ServiceName}"
-            : $"with profile {session.DisplayName} as {session.Options.Username} to {session.Options.Host}:{session.Options.Port}/{session.Options.ServiceName}";
-        ConnectionStateTextBlock.Text = $"Connected {profileLabel}. App Engine browsing remains read-only.";
         RefreshButton.IsEnabled = true;
         GlobalSourceSearchButton.IsEnabled = true;
         _ = LoadItemsAsync();

@@ -27,7 +27,6 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     public void ShowAppPackage()
     {
         SetSelectedMode(AppPackageMode);
-        ModeTitleTextBlock.Text = AppPackageMode;
         ModeSummaryTextBlock.Text = "Browse App Package classes and search App Package PeopleCode with the current read-only tools.";
         ModeContentHost.Content = _appPackageView;
     }
@@ -35,7 +34,6 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     public void ShowAppEngine()
     {
         SetSelectedMode(AppEngineMode);
-        ModeTitleTextBlock.Text = AppEngineMode;
         ModeSummaryTextBlock.Text = "Browse read-only App Engine PeopleCode by program, section, step, and action, and search source text with the current Oracle-backed tools.";
         ModeContentHost.Content = _appEngineView;
     }

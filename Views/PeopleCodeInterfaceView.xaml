@@ -8,7 +8,7 @@
     mc:Ignorable="d">
 
     <Grid Padding="24"
-          RowSpacing="16">
+          RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -23,15 +23,14 @@
             <StackPanel Spacing="4">
                 <TextBlock Text="PeopleCode Interface"
                            Style="{ThemeResource TitleTextBlockStyle}" />
-                <TextBlock x:Name="ModeTitleTextBlock"
-                           Style="{ThemeResource SubtitleTextBlockStyle}" />
                 <TextBlock x:Name="ModeSummaryTextBlock"
+                           Style="{ThemeResource CaptionTextBlockStyle}"
                            TextWrapping="WrapWholeWords"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </StackPanel>
 
             <StackPanel Grid.Column="1"
-                        Spacing="6"
+                        Spacing="4"
                         HorizontalAlignment="Right">
                 <TextBlock Text="Object type"
                            Style="{ThemeResource CaptionTextBlockStyle}"
@@ -46,6 +45,7 @@
         </Grid>
 
         <ContentControl Grid.Row="1"
-                        x:Name="ModeContentHost" />
+                        x:Name="ModeContentHost"
+                        Margin="0,4,0,0" />
     </Grid>
 </UserControl>

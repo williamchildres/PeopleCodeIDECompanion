@@ -27,7 +27,6 @@ public sealed class AppPackageBrowserView : UserControl
     private readonly ObservableCollection<string> _filteredPackageRoots = [];
     private readonly ObservableCollection<AppPackageSourceSearchMatch> _globalSearchResults = [];
 
-    private readonly TextBlock _connectionSummaryTextBlock;
     private readonly Button _refreshButton;
     private readonly InfoBar _inlineErrorInfoBar;
     private readonly TextBox _packageSearchTextBox;
@@ -64,12 +63,6 @@ public sealed class AppPackageBrowserView : UserControl
 
     public AppPackageBrowserView()
     {
-        _connectionSummaryTextBlock = new TextBlock
-        {
-            Text = "Connect from the Oracle Connection screen to load App Package PeopleCode.",
-            TextWrapping = TextWrapping.WrapWholeWords
-        };
-
         _refreshButton = new Button
         {
             Content = "Refresh",
@@ -215,9 +208,6 @@ public sealed class AppPackageBrowserView : UserControl
     public void SetSession(OracleConnectionSession session)
     {
         _session = session;
-        _connectionSummaryTextBlock.Text = string.IsNullOrWhiteSpace(session.DisplayName)
-            ? $"Connected as {session.Options.Username} to {session.Options.Host}:{session.Options.Port}/{session.Options.ServiceName}"
-            : $"Connected with profile {session.DisplayName} as {session.Options.Username} to {session.Options.Host}:{session.Options.Port}/{session.Options.ServiceName}";
         _refreshButton.IsEnabled = true;
         _globalSourceSearchButton.IsEnabled = true;
         _ = LoadEntriesAsync();
@@ -227,27 +217,20 @@ public sealed class AppPackageBrowserView : UserControl
     {
         Grid root = new()
         {
-            Padding = new Thickness(24),
-            RowSpacing = 16,
+            RowSpacing = 12,
             ColumnSpacing = 16
         };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-        Grid headerGrid = new() { ColumnSpacing = 16 };
-        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        StackPanel titleStack = new() { Spacing = 6 };
-        TextBlock title = new() { Text = "App Package" };
-        title.Style = Application.Current.Resources["TitleTextBlockStyle"] as Style;
-        titleStack.Children.Add(title);
-        titleStack.Children.Add(_connectionSummaryTextBlock);
-        headerGrid.Children.Add(titleStack);
-        Grid.SetColumn(_refreshButton, 1);
-        headerGrid.Children.Add(_refreshButton);
-        root.Children.Add(headerGrid);
+        StackPanel commandBar = new()
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        commandBar.Children.Add(_refreshButton);
+        root.Children.Add(commandBar);
 
         Grid.SetRow(_inlineErrorInfoBar, 1);
         root.Children.Add(_inlineErrorInfoBar);
