@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Markup;
 using Microsoft.UI.Xaml.Media;
@@ -43,7 +44,7 @@ public sealed class AppPackageBrowserView : UserControl
     private readonly TextBlock _selectedEntryTitleTextBlock;
     private readonly TextBlock _selectedEntryTypeTextBlock;
     private readonly TextBlock _metadataSummaryTextBlock;
-    private readonly TextBox _sourceTextBox;
+    private readonly RichTextBlock _sourceRichTextBlock;
 
     private OracleConnectionSession? _session;
     private AppPackageEntry? _selectedEntry;
@@ -51,6 +52,8 @@ public sealed class AppPackageBrowserView : UserControl
     private int _sourceLoadVersion;
     private bool _isGlobalSearchMode;
     private string _activeGlobalSearchText = string.Empty;
+    private string _currentSourceText = string.Empty;
+    private bool _currentSourceUsesSyntaxHighlighting;
 
     public AppPackageBrowserView()
     {
@@ -157,14 +160,16 @@ public sealed class AppPackageBrowserView : UserControl
             TextWrapping = TextWrapping.WrapWholeWords
         };
 
-        _sourceTextBox = new TextBox
+        _sourceRichTextBlock = new RichTextBlock
         {
-            AcceptsReturn = true,
             FontFamily = new FontFamily("Consolas"),
-            IsReadOnly = true,
+            IsTextSelectionEnabled = true,
             MinHeight = 300,
-            TextWrapping = TextWrapping.NoWrap
+            TextWrapping = TextWrapping.NoWrap,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Stretch
         };
+        _sourceRichTextBlock.Blocks.Add(new Paragraph());
 
         Content = BuildLayout();
         SetGlobalSearchStatus(string.Empty, false);
@@ -252,7 +257,7 @@ public sealed class AppPackageBrowserView : UserControl
         sourceGrid.Children.Add(sourceTitle);
         ScrollViewer sourceScrollViewer = new()
         {
-            Content = _sourceTextBox,
+            Content = _sourceRichTextBlock,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
         };
@@ -419,12 +424,12 @@ public sealed class AppPackageBrowserView : UserControl
 
         if (_selectedEntry is null || _session is null)
         {
-            _sourceTextBox.Text = string.Empty;
+            SetSourceViewerText(string.Empty, useSyntaxHighlighting: false);
             return;
         }
 
         _inlineErrorInfoBar.IsOpen = false;
-        _sourceTextBox.Text = "Loading PeopleCode source...";
+        SetSourceViewerText("Loading PeopleCode source...", useSyntaxHighlighting: false);
 
         AppPackageSourceResult result = await _browserService.GetSourceAsync(_session.Options, _selectedEntry);
         if (sourceLoadVersion != _sourceLoadVersion || !ReferenceEquals(_selectedEntry, _entriesListView.SelectedItem))
@@ -434,15 +439,17 @@ public sealed class AppPackageBrowserView : UserControl
 
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
-            _sourceTextBox.Text = string.Empty;
+            SetSourceViewerText(string.Empty, useSyntaxHighlighting: false);
             _inlineErrorInfoBar.Message = result.ErrorMessage;
             _inlineErrorInfoBar.IsOpen = true;
             return;
         }
 
-        _sourceTextBox.Text = string.IsNullOrWhiteSpace(result.SourceText)
+        SetSourceViewerText(
+            string.IsNullOrWhiteSpace(result.SourceText)
             ? "No PeopleCode source text was returned for this entry."
-            : result.SourceText;
+            : result.SourceText,
+            useSyntaxHighlighting: !string.IsNullOrWhiteSpace(result.SourceText));
     }
 
     private async Task LoadEntriesAsync()
@@ -453,7 +460,7 @@ public sealed class AppPackageBrowserView : UserControl
         }
 
         _inlineErrorInfoBar.IsOpen = false;
-        _sourceTextBox.Text = string.Empty;
+        SetSourceViewerText(string.Empty, useSyntaxHighlighting: false);
         _allPackageRoots.Clear();
         _filteredPackageRoots.Clear();
         _filteredEntries.Clear();
@@ -578,7 +585,7 @@ public sealed class AppPackageBrowserView : UserControl
         {
             _selectedEntry = null;
             _sourceLoadVersion++;
-            _sourceTextBox.Text = string.Empty;
+            SetSourceViewerText(string.Empty, useSyntaxHighlighting: false);
             SetMetadata(null);
         }
     }
@@ -641,6 +648,7 @@ public sealed class AppPackageBrowserView : UserControl
         _activeGlobalSearchText = searchText;
         _globalSearchErrorInfoBar.IsOpen = false;
         UpdateGlobalSearchChrome();
+        RefreshSourceViewerFormatting();
 
         string? preferredPackage = _selectedEntry?.PackageRoot;
         AppPackageEntry? preferredEntry = _selectedEntry;
@@ -673,6 +681,7 @@ public sealed class AppPackageBrowserView : UserControl
         _globalSearchErrorInfoBar.IsOpen = false;
         SetGlobalSearchStatus(string.Empty, false);
         UpdateGlobalSearchChrome();
+        RefreshSourceViewerFormatting();
 
         string? preferredPackage = _selectedEntry?.PackageRoot;
         AppPackageEntry? preferredEntry = _selectedEntry;
@@ -785,6 +794,26 @@ public sealed class AppPackageBrowserView : UserControl
     {
         _globalSearchStatusTextBlock.Text = text;
         _globalSearchStatusTextBlock.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SetSourceViewerText(string text, bool useSyntaxHighlighting)
+    {
+        _currentSourceText = text;
+        _currentSourceUsesSyntaxHighlighting = useSyntaxHighlighting;
+        PeopleCodeSourceFormatter.ApplyFormatting(
+            _sourceRichTextBlock,
+            text,
+            useSyntaxHighlighting,
+            _isGlobalSearchMode ? _activeGlobalSearchText : null);
+    }
+
+    private void RefreshSourceViewerFormatting()
+    {
+        PeopleCodeSourceFormatter.ApplyFormatting(
+            _sourceRichTextBlock,
+            _currentSourceText,
+            _currentSourceUsesSyntaxHighlighting,
+            _isGlobalSearchMode ? _activeGlobalSearchText : null);
     }
 
     private void SetMetadata(AppPackageEntry? entry)
