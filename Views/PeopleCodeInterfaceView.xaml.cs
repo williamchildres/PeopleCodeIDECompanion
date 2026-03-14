@@ -5,8 +5,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using PeopleCodeIDECompanion.Models;
 using PeopleCodeIDECompanion.Services;
+using Windows.System;
 
 namespace PeopleCodeIDECompanion.Views;
 
@@ -29,6 +31,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     {
         _sessionManager = sessionManager;
         InitializeComponent();
+        KeyboardAccelerators.Add(BuildFindKeyboardAccelerator());
         ProfileComboBox.ItemsSource = ConnectedProfiles;
         _sessionManager.SessionsChanged += SessionManager_SessionsChanged;
         _sessionManager.SelectedSessionChanged += SessionManager_SelectedSessionChanged;
@@ -129,6 +132,11 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         return await workspace.OpenItemAsync(mode, sourceKey);
     }
 
+    public void FocusGlobalSearch()
+    {
+        ActiveWorkspace?.FocusGlobalSearch();
+    }
+
     private ProfileWorkspace? ActiveWorkspace =>
         _sessionManager.SelectedSession is null
             ? null
@@ -143,6 +151,12 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     {
         SyncProfileSelection(session);
         ShowCurrentWorkspace();
+    }
+
+    private void FindKeyboardAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        FocusGlobalSearch();
     }
 
     private void SyncWorkspaces()
@@ -321,6 +335,17 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         };
     }
 
+    private KeyboardAccelerator BuildFindKeyboardAccelerator()
+    {
+        KeyboardAccelerator accelerator = new()
+        {
+            Key = VirtualKey.F,
+            Modifiers = VirtualKeyModifiers.Control
+        };
+        accelerator.Invoked += FindKeyboardAccelerator_Invoked;
+        return accelerator;
+    }
+
     private sealed class ProfileWorkspace
     {
         public ProfileWorkspace(OracleConnectionSession session, DetachedSourceWindowManager detachedSourceWindowManager)
@@ -408,6 +433,31 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
                 ComponentMode when sourceKey is ComponentPeopleCodeItem item => ComponentView.OpenItemAsync(item),
                 _ => Task.FromResult(false)
             };
+        }
+
+        public void FocusGlobalSearch()
+        {
+            switch (CurrentMode)
+            {
+                case AllObjectsMode:
+                    AllObjectsView.FocusGlobalSearch();
+                    break;
+                case AppEngineMode:
+                    AppEngineView.FocusGlobalSearch();
+                    break;
+                case RecordMode:
+                    RecordView.FocusGlobalSearch();
+                    break;
+                case PageMode:
+                    PageView.FocusGlobalSearch();
+                    break;
+                case ComponentMode:
+                    ComponentView.FocusGlobalSearch();
+                    break;
+                default:
+                    AppPackageView.FocusGlobalSearch();
+                    break;
+            }
         }
     }
 }

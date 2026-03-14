@@ -181,6 +181,12 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         UpdateSearchChrome();
     }
 
+    public void FocusGlobalSearch()
+    {
+        _searchTextBox.Focus(FocusState.Programmatic);
+        _searchTextBox.SelectAll();
+    }
+
     private UIElement BuildLayout()
     {
         Grid root = new()
@@ -729,12 +735,16 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
 
     private void UpdateSourceMatchChrome()
     {
+        bool hasActiveSearch = !string.IsNullOrWhiteSpace(_activeSearchText);
         bool hasNavigableMatches = _currentSourceMatchRanges.Count > 0;
+        _sourceMatchStatusTextBlock.Visibility = hasActiveSearch ? Visibility.Visible : Visibility.Collapsed;
+        _previousSourceMatchButton.Visibility = hasActiveSearch ? Visibility.Visible : Visibility.Collapsed;
+        _nextSourceMatchButton.Visibility = hasActiveSearch ? Visibility.Visible : Visibility.Collapsed;
         _previousSourceMatchButton.IsEnabled = hasNavigableMatches;
         _nextSourceMatchButton.IsEnabled = hasNavigableMatches;
         _sourceMatchStatusTextBlock.Text = hasNavigableMatches
             ? $"Match {_activeSourceMatchIndex + 1} of {_currentSourceMatchRanges.Count}"
-            : !string.IsNullOrWhiteSpace(_activeSearchText)
+            : hasActiveSearch
                 ? "No matches in current source"
                 : string.Empty;
     }

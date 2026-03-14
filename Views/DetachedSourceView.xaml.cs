@@ -4,15 +4,18 @@ using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
+using Microsoft.UI.Xaml.Input;
 using PeopleCodeIDECompanion.Models;
 using PeopleCodeIDECompanion.Services;
 using Windows.Foundation;
+using Windows.System;
 
 namespace PeopleCodeIDECompanion.Views;
 
 public sealed partial class DetachedSourceView : UserControl
 {
     private DetachedPeopleCodeSourceContext _context = new();
+    private string _activeSearchText = string.Empty;
     private IReadOnlyList<TextRange> _currentSourceMatchRanges = Array.Empty<TextRange>();
     private int _activeSourceMatchIndex = -1;
 
@@ -20,6 +23,7 @@ public sealed partial class DetachedSourceView : UserControl
     {
         InitializeComponent();
         SourceRichTextBlock.Blocks.Add(new Paragraph());
+        KeyboardAccelerators.Add(BuildFindKeyboardAccelerator());
     }
 
     public DetachedSourceView(DetachedPeopleCodeSourceContext context)
@@ -31,6 +35,7 @@ public sealed partial class DetachedSourceView : UserControl
     public void LoadContext(DetachedPeopleCodeSourceContext context)
     {
         _context = context ?? new DetachedPeopleCodeSourceContext();
+        _activeSearchText = _context.SearchText ?? string.Empty;
         ObjectTypeTextBlock.Text = _context.ObjectType;
         ObjectTitleTextBlock.Text = _context.ObjectTitle;
         ObjectSubtitleTextBlock.Text = _context.ObjectSubtitle;
@@ -58,10 +63,16 @@ public sealed partial class DetachedSourceView : UserControl
         NavigateCurrentSourceMatch(1);
     }
 
+    private async void FindKeyboardAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        await ShowFindDialogAsync();
+    }
+
     private void ApplySourceFormatting()
     {
-        _currentSourceMatchRanges = !string.IsNullOrWhiteSpace(_context.SearchText)
-            ? PeopleCodeSourceFormatter.GetMatchRanges(_context.SourceText, _context.SearchText)
+        _currentSourceMatchRanges = !string.IsNullOrWhiteSpace(_activeSearchText)
+            ? PeopleCodeSourceFormatter.GetMatchRanges(_context.SourceText, _activeSearchText)
             : Array.Empty<TextRange>();
         _activeSourceMatchIndex = _currentSourceMatchRanges.Count > 0 ? 0 : -1;
 
@@ -69,7 +80,7 @@ public sealed partial class DetachedSourceView : UserControl
             SourceRichTextBlock,
             _context.SourceText,
             _context.UseSyntaxHighlighting,
-            _context.SearchText,
+            string.IsNullOrWhiteSpace(_activeSearchText) ? null : _activeSearchText,
             _activeSourceMatchIndex);
 
         UpdateSourceMatchChrome();
@@ -86,8 +97,8 @@ public sealed partial class DetachedSourceView : UserControl
 
     private void RefreshSourceViewerFormatting()
     {
-        _currentSourceMatchRanges = !string.IsNullOrWhiteSpace(_context.SearchText)
-            ? PeopleCodeSourceFormatter.GetMatchRanges(_context.SourceText, _context.SearchText)
+        _currentSourceMatchRanges = !string.IsNullOrWhiteSpace(_activeSearchText)
+            ? PeopleCodeSourceFormatter.GetMatchRanges(_context.SourceText, _activeSearchText)
             : Array.Empty<TextRange>();
 
         if (_currentSourceMatchRanges.Count == 0)
@@ -103,7 +114,7 @@ public sealed partial class DetachedSourceView : UserControl
             SourceRichTextBlock,
             _context.SourceText,
             _context.UseSyntaxHighlighting,
-            _context.SearchText,
+            string.IsNullOrWhiteSpace(_activeSearchText) ? null : _activeSearchText,
             _activeSourceMatchIndex);
 
         UpdateSourceMatchChrome();
@@ -111,12 +122,16 @@ public sealed partial class DetachedSourceView : UserControl
 
     private void UpdateSourceMatchChrome()
     {
+        bool hasActiveSearch = !string.IsNullOrWhiteSpace(_activeSearchText);
         bool hasNavigableMatches = _currentSourceMatchRanges.Count > 0;
+        SourceMatchStatusTextBlock.Visibility = hasActiveSearch ? Visibility.Visible : Visibility.Collapsed;
+        PreviousSourceMatchButton.Visibility = hasActiveSearch ? Visibility.Visible : Visibility.Collapsed;
+        NextSourceMatchButton.Visibility = hasActiveSearch ? Visibility.Visible : Visibility.Collapsed;
         PreviousSourceMatchButton.IsEnabled = hasNavigableMatches;
         NextSourceMatchButton.IsEnabled = hasNavigableMatches;
         SourceMatchStatusTextBlock.Text = hasNavigableMatches
             ? $"Match {_activeSourceMatchIndex + 1} of {_currentSourceMatchRanges.Count}"
-            : !string.IsNullOrWhiteSpace(_context.SearchText)
+            : hasActiveSearch
                 ? "No matches in current source"
                 : string.Empty;
     }
@@ -177,5 +192,46 @@ public sealed partial class DetachedSourceView : UserControl
         double horizontalOffset = Math.Max(0d, (scrollableWidth * targetColumnRatio) - horizontalPadding);
 
         SourceScrollViewer.ChangeView(horizontalOffset, verticalOffset, null, false);
+    }
+
+    private KeyboardAccelerator BuildFindKeyboardAccelerator()
+    {
+        KeyboardAccelerator accelerator = new()
+        {
+            Key = VirtualKey.F,
+            Modifiers = VirtualKeyModifiers.Control
+        };
+        accelerator.Invoked += FindKeyboardAccelerator_Invoked;
+        return accelerator;
+    }
+
+    private async System.Threading.Tasks.Task ShowFindDialogAsync()
+    {
+        TextBox searchTextBox = new()
+        {
+            Header = "Find in current source",
+            PlaceholderText = "Enter text to highlight in this source view",
+            Text = _activeSearchText
+        };
+        searchTextBox.SelectAll();
+
+        ContentDialog dialog = new()
+        {
+            Title = "Find in Source",
+            PrimaryButtonText = "Find",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            Content = searchTextBox,
+            XamlRoot = XamlRoot
+        };
+
+        ContentDialogResult result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        _activeSearchText = searchTextBox.Text.Trim();
+        ApplySourceFormatting();
     }
 }

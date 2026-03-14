@@ -66,6 +66,12 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         _statusStore = statusStore;
     }
 
+    public void FocusGlobalSearch()
+    {
+        GlobalSourceSearchTextBox.Focus(FocusState.Programmatic);
+        GlobalSourceSearchTextBox.SelectAll();
+    }
+
     public Task RefreshAsync()
     {
         return LoadItemsAsync();
@@ -654,13 +660,17 @@ public sealed partial class AppEnginePlaceholderView : UserControl
 
     private void UpdateSourceMatchChrome()
     {
-        bool hasNavigableMatches = _isGlobalSearchMode && _currentSourceMatchRanges.Count > 0;
+        bool hasActiveSearch = _isGlobalSearchMode && !string.IsNullOrWhiteSpace(_activeGlobalSearchText);
+        bool hasNavigableMatches = hasActiveSearch && _currentSourceMatchRanges.Count > 0;
+        SourceMatchStatusTextBlock.Visibility = hasActiveSearch ? Visibility.Visible : Visibility.Collapsed;
+        PreviousSourceMatchButton.Visibility = hasActiveSearch ? Visibility.Visible : Visibility.Collapsed;
+        NextSourceMatchButton.Visibility = hasActiveSearch ? Visibility.Visible : Visibility.Collapsed;
         PreviousSourceMatchButton.IsEnabled = hasNavigableMatches;
         NextSourceMatchButton.IsEnabled = hasNavigableMatches;
 
         SourceMatchStatusTextBlock.Text = hasNavigableMatches
             ? $"Match {_activeSourceMatchIndex + 1} of {_currentSourceMatchRanges.Count}"
-            : _isGlobalSearchMode && !string.IsNullOrWhiteSpace(_activeGlobalSearchText)
+            : hasActiveSearch
                 ? "No matches in current source"
                 : string.Empty;
     }

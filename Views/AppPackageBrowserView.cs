@@ -244,6 +244,12 @@ public sealed class AppPackageBrowserView : UserControl
         _statusStore = statusStore;
     }
 
+    public void FocusGlobalSearch()
+    {
+        _globalSourceSearchTextBox.Focus(FocusState.Programmatic);
+        _globalSourceSearchTextBox.SelectAll();
+    }
+
     public Task RefreshAsync()
     {
         return LoadEntriesAsync();
@@ -993,13 +999,17 @@ public sealed class AppPackageBrowserView : UserControl
 
     private void UpdateSourceMatchChrome()
     {
-        bool hasNavigableMatches = _isGlobalSearchMode && _currentSourceMatchRanges.Count > 0;
+        bool hasActiveSearch = _isGlobalSearchMode && !string.IsNullOrWhiteSpace(_activeGlobalSearchText);
+        bool hasNavigableMatches = hasActiveSearch && _currentSourceMatchRanges.Count > 0;
+        _sourceMatchStatusTextBlock.Visibility = hasActiveSearch ? Visibility.Visible : Visibility.Collapsed;
+        _previousSourceMatchButton.Visibility = hasActiveSearch ? Visibility.Visible : Visibility.Collapsed;
+        _nextSourceMatchButton.Visibility = hasActiveSearch ? Visibility.Visible : Visibility.Collapsed;
         _previousSourceMatchButton.IsEnabled = hasNavigableMatches;
         _nextSourceMatchButton.IsEnabled = hasNavigableMatches;
 
         _sourceMatchStatusTextBlock.Text = hasNavigableMatches
             ? $"Match {_activeSourceMatchIndex + 1} of {_currentSourceMatchRanges.Count}"
-            : _isGlobalSearchMode && !string.IsNullOrWhiteSpace(_activeGlobalSearchText)
+            : hasActiveSearch
                 ? "No matches in current source"
                 : string.Empty;
     }
