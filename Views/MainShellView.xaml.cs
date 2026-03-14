@@ -3,16 +3,22 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using PeopleCodeIDECompanion.Models;
 using PeopleCodeIDECompanion.Services;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.System;
+using Windows.UI.Core;
 
 namespace PeopleCodeIDECompanion.Views;
 
 public sealed partial class MainShellView : UserControl
 {
+    private static readonly Uri GitHubRepositoryUri = new("https://github.com/williamchildres/PeopleCodeIDECompanion");
     private readonly OracleSessionManager _sessionManager = new();
     private readonly SavedOracleConnectionStore _savedConnectionStore = new();
     private readonly SecureCredentialStore _secureCredentialStore = new();
@@ -42,15 +48,18 @@ public sealed partial class MainShellView : UserControl
         _isPaneOpenCallbackToken = AppNavigationView.RegisterPropertyChangedCallback(
             NavigationView.IsPaneOpenProperty,
             (_, _) => UpdatePaneFooterLayout());
+        KeyDown += MainShellView_KeyDown;
         Loaded += MainShellView_Loaded;
         Unloaded += MainShellView_Unloaded;
         UpdatePaneFooterLayout();
 
-        ContentHost.Content = _oracleConnectionView;
-        AppNavigationView.SelectedItem = AppNavigationView.MenuItems[0];
+        ContentHost.Content = _peopleCodeInterfaceView;
+        AppNavigationView.SelectedItem = PeopleCodeInterfaceNavigationItem;
     }
 
     public IReadOnlyList<PeopleCodeObjectStatusItem> ObjectStatuses => _peopleCodeInterfaceView.ObjectStatuses;
+
+    public FrameworkElement TitleBarDragRegion => TitleBarDragRegionElement;
 
     private async void MainShellView_Loaded(object sender, RoutedEventArgs e)
     {
@@ -124,6 +133,95 @@ public sealed partial class MainShellView : UserControl
         }
 
         NavigateTo(destination);
+    }
+
+    private void PaneToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        ToggleSidebar();
+    }
+
+    private async void FileSettingsMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        await ShowSettingsDialogAsync();
+    }
+
+    private async void FileAboutMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ContentDialog dialog = new()
+        {
+            Title = "About PeopleCodeIDECompanion",
+            CloseButtonText = "Close",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot,
+            Content = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = "PeopleCodeIDECompanion",
+                        Style = Application.Current.Resources["TitleTextBlockStyle"] as Style
+                    },
+                    new TextBlock
+                    {
+                        Text = "Read-only PeopleCode browsing, search, overview, and cross-profile compare for Oracle-backed PeopleSoft environments.",
+                        TextWrapping = TextWrapping.WrapWholeWords
+                    },
+                    new TextBlock
+                    {
+                        Text = GitHubRepositoryUri.ToString(),
+                        Foreground = Application.Current.Resources["TextFillColorSecondaryBrush"] as Brush,
+                        TextWrapping = TextWrapping.WrapWholeWords
+                    }
+                }
+            }
+        };
+
+        await dialog.ShowAsync();
+    }
+
+    private void EditCopyMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ExecuteTextEditCommand(EditCommand.Copy);
+    }
+
+    private void EditCutMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ExecuteTextEditCommand(EditCommand.Cut);
+    }
+
+    private void EditPasteMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ExecuteTextEditCommand(EditCommand.Paste);
+    }
+
+    private void EditDeleteMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ExecuteTextEditCommand(EditCommand.Delete);
+    }
+
+    private void ViewToggleSidebarMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ToggleSidebar();
+    }
+
+    private void ViewToggleFindMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ToggleFind();
+    }
+
+    private void WindowMinimizeMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (App.MainWindow is MainWindow mainWindow)
+        {
+            mainWindow.MinimizeWindow();
+        }
+    }
+
+    private async void HelpGitHubMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        await Launcher.LaunchUriAsync(GitHubRepositoryUri);
     }
 
     private async void ObjectStatusRefreshButton_Click(object sender, RoutedEventArgs e)
@@ -320,11 +418,10 @@ public sealed partial class MainShellView : UserControl
     {
         ContentHost.Content = destination switch
         {
-            "OracleConnection" => _oracleConnectionView,
             "PeopleCodeInterface" => _peopleCodeInterfaceView,
             "PeopleCodeOverview" => _peopleCodeOverviewView,
             "ReferenceExplorer" => _referenceExplorerView,
-            _ => _referenceExplorerView
+            _ => _peopleCodeInterfaceView
         };
     }
 
@@ -447,6 +544,125 @@ public sealed partial class MainShellView : UserControl
         TextBlock LastLoadedTextBlock,
         Button RefreshButton);
 
+    private async System.Threading.Tasks.Task ShowSettingsDialogAsync()
+    {
+        ContentDialog dialog = new()
+        {
+            Title = "Settings",
+            CloseButtonText = "Close",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot,
+            Content = _oracleConnectionView
+        };
+
+        void CloseSettingsOnBrowserRequest(object? sender, OracleConnectionSession session)
+        {
+            dialog.Hide();
+        }
+
+        _oracleConnectionView.BrowserRequested += CloseSettingsOnBrowserRequest;
+        try
+        {
+            await dialog.ShowAsync();
+        }
+        finally
+        {
+            _oracleConnectionView.BrowserRequested -= CloseSettingsOnBrowserRequest;
+        }
+    }
+
+    private void ToggleSidebar()
+    {
+        AppNavigationView.IsPaneOpen = !AppNavigationView.IsPaneOpen;
+    }
+
+    private void ToggleFind()
+    {
+        NavigateToPeopleCodeInterface();
+        _peopleCodeInterfaceView.FocusGlobalSearch();
+    }
+
+    private void MainShellView_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (!IsControlPressed())
+        {
+            return;
+        }
+
+        if (e.Key == VirtualKey.B)
+        {
+            e.Handled = true;
+            ToggleSidebar();
+            return;
+        }
+
+        if (e.Key == VirtualKey.F && !ReferenceEquals(ContentHost.Content, _peopleCodeInterfaceView))
+        {
+            e.Handled = true;
+            ToggleFind();
+        }
+    }
+
+    private void ExecuteTextEditCommand(EditCommand command)
+    {
+        DependencyObject? focusedElement = FocusManager.GetFocusedElement(XamlRoot) as DependencyObject;
+        switch (focusedElement)
+        {
+            case TextBox textBox:
+                ExecuteTextBoxCommand(textBox, command);
+                break;
+            case PasswordBox passwordBox when command is EditCommand.Paste or EditCommand.Delete:
+                ExecutePasswordBoxCommand(passwordBox, command);
+                break;
+        }
+    }
+
+    private static void ExecuteTextBoxCommand(TextBox textBox, EditCommand command)
+    {
+        switch (command)
+        {
+            case EditCommand.Copy:
+                textBox.CopySelectionToClipboard();
+                break;
+            case EditCommand.Cut:
+                textBox.CutSelectionToClipboard();
+                break;
+            case EditCommand.Paste:
+                textBox.PasteFromClipboard();
+                break;
+            case EditCommand.Delete:
+                if (textBox.SelectionLength > 0)
+                {
+                    int start = textBox.SelectionStart;
+                    textBox.Text = textBox.Text.Remove(start, textBox.SelectionLength);
+                    textBox.SelectionStart = start;
+                }
+                else if (textBox.SelectionStart < textBox.Text.Length)
+                {
+                    int start = textBox.SelectionStart;
+                    textBox.Text = textBox.Text.Remove(start, 1);
+                    textBox.SelectionStart = start;
+                }
+                break;
+        }
+    }
+
+    private static void ExecutePasswordBoxCommand(PasswordBox passwordBox, EditCommand command)
+    {
+        if (command != EditCommand.Delete)
+        {
+            return;
+        }
+
+        passwordBox.Password = string.Empty;
+    }
+
+    private static bool IsControlPressed()
+    {
+        CoreVirtualKeyStates controlState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control);
+        return (controlState & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down;
+    }
+
     private void MainShellView_Unloaded(object sender, RoutedEventArgs e)
     {
         AppNavigationView.UnregisterPropertyChangedCallback(
@@ -469,5 +685,13 @@ public sealed partial class MainShellView : UserControl
         _peopleCodeInterfaceView.ActiveWorkspaceChanged -= PeopleCodeInterfaceView_ActiveWorkspaceChanged;
         _peopleCodeOverviewView.NavigateToPeopleCodeObjectRequested -= PeopleCodeOverviewView_NavigateToPeopleCodeObjectRequested;
         Unloaded -= MainShellView_Unloaded;
+    }
+
+    private enum EditCommand
+    {
+        Copy,
+        Cut,
+        Paste,
+        Delete
     }
 }

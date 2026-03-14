@@ -1,58 +1,75 @@
 using System;
+using Microsoft.UI;
+using Microsoft.UI.Windowing;
 using PeopleCodeIDECompanion.Models;
 using Microsoft.UI.Xaml;
+using Windows.UI;
+using WinRT.Interop;
 
 namespace PeopleCodeIDECompanion;
 
 public sealed partial class MainWindow : Window
 {
     private const string BaseTitle = "PeopleCodeIDECompanion";
-    private const int MaxTitleLength = 140;
+    private readonly AppWindow _appWindow;
 
     public MainWindow()
     {
         InitializeComponent();
+        _appWindow = GetAppWindowForCurrentWindow();
         Title = BaseTitle;
+        Activated += MainWindow_Activated;
     }
 
     public void UpdateConnectionTitle(OracleConnectionSession? session, int activeSessionCount = 0)
     {
-        if (session is null)
+        Title = BaseTitle;
+    }
+
+    public void MinimizeWindow()
+    {
+        if (_appWindow.Presenter is OverlappedPresenter presenter)
         {
-            Title = BaseTitle;
+            presenter.Minimize();
+        }
+    }
+
+    private void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
+    {
+        Activated -= MainWindow_Activated;
+        ConfigureCustomTitleBar();
+    }
+
+    private void ConfigureCustomTitleBar()
+    {
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(ShellView.TitleBarDragRegion);
+
+        if (!AppWindowTitleBar.IsCustomizationSupported())
+        {
             return;
         }
 
-        string profilePart = string.IsNullOrWhiteSpace(session.DisplayName)
-            ? "Connected"
-            : $"Connected with profile {session.DisplayName}";
-        if (activeSessionCount > 1)
-        {
-            profilePart += $" ({activeSessionCount} active)";
-        }
-        string endpoint = $"{session.Options.Host}:{session.Options.Port}/{session.Options.ServiceName}";
-        string fullTitle = $"{BaseTitle} - {profilePart} as {session.Options.Username} to {endpoint}";
+        AppWindowTitleBar titleBar = _appWindow.TitleBar;
+        Color foreground = Color.FromArgb(0xFF, 0xF3, 0xF3, 0xF3);
+        Color hoverBackground = Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF);
+        Color pressedBackground = Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF);
+        Color inactiveForeground = Color.FromArgb(0x99, 0xF3, 0xF3, 0xF3);
 
-        Title = fullTitle.Length <= MaxTitleLength
-            ? fullTitle
-            : $"{BaseTitle} - {profilePart} as {session.Options.Username} to {TruncateMiddle(endpoint, 44)}";
+        titleBar.ButtonBackgroundColor = Colors.Transparent;
+        titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+        titleBar.ButtonForegroundColor = foreground;
+        titleBar.ButtonInactiveForegroundColor = inactiveForeground;
+        titleBar.ButtonHoverBackgroundColor = hoverBackground;
+        titleBar.ButtonPressedBackgroundColor = pressedBackground;
+        titleBar.ButtonHoverForegroundColor = foreground;
+        titleBar.ButtonPressedForegroundColor = foreground;
     }
 
-    private static string TruncateMiddle(string value, int maxLength)
+    private AppWindow GetAppWindowForCurrentWindow()
     {
-        if (string.IsNullOrEmpty(value) || value.Length <= maxLength)
-        {
-            return value;
-        }
-
-        if (maxLength <= 3)
-        {
-            return value[..maxLength];
-        }
-
-        int visibleLength = maxLength - 3;
-        int startLength = (int)Math.Ceiling(visibleLength / 2d);
-        int endLength = visibleLength - startLength;
-        return $"{value[..startLength]}...{value[^endLength..]}";
+        nint hwnd = WindowNative.GetWindowHandle(this);
+        WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
+        return AppWindow.GetFromWindowId(windowId);
     }
 }

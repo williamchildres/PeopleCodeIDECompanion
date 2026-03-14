@@ -8,89 +8,171 @@
     mc:Ignorable="d">
 
     <Grid>
-        <NavigationView x:Name="AppNavigationView"
-                        IsBackButtonVisible="Collapsed"
-                        IsSettingsVisible="False"
-                        PaneDisplayMode="Left"
-                        SelectionChanged="AppNavigationView_SelectionChanged">
-            <NavigationView.MenuItems>
-                <NavigationViewItem x:Name="OracleConnectionNavigationItem"
-                                    Content="Oracle Connection"
-                                    Tag="OracleConnection">
-                    <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="World" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem x:Name="PeopleCodeInterfaceNavigationItem"
-                                    Content="PeopleCode Interface"
-                                    Tag="PeopleCodeInterface">
-                    <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Document" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem x:Name="PeopleCodeOverviewNavigationItem"
-                                    Content="PeopleCode Overview"
-                                    Tag="PeopleCodeOverview">
-                    <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="PreviewLink" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem x:Name="ReferenceExplorerNavigationItem"
-                                    Content="Reference Explorer"
-                                    Tag="ReferenceExplorer">
-                    <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Library" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-            </NavigationView.MenuItems>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+        <Border Grid.Row="0"
+                Background="#252526"
+                BorderBrush="#323232"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnSpacing="8"
+                  Padding="6,0,138,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-                <InfoBar x:Name="ShellInfoBar"
-                         Margin="12,12,12,0"
-                         IsOpen="False"
-                         IsClosable="True"
-                         Severity="Warning" />
+                <Button x:Name="PaneToggleButton"
+                        Width="32"
+                        Height="32"
+                        Margin="0,4,0,4"
+                        Padding="0"
+                        VerticalAlignment="Center"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        Click="PaneToggleButton_Click">
+                    <FontIcon Glyph="&#xE700;"
+                              Foreground="#F3F3F3" />
+                </Button>
 
-                <ContentControl Grid.Row="1"
-                                x:Name="ContentHost" />
+                <Grid Grid.Column="1"
+                      ColumnSpacing="10"
+                      VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Image Width="16"
+                           Height="16"
+                           VerticalAlignment="Center"
+                           Source="ms-appx:///Assets/Square44x44Logo.scale-200.png" />
+
+                    <MenuBar Grid.Column="1"
+                             Background="Transparent"
+                             Foreground="#F3F3F3">
+                        <MenuBarItem Title="File">
+                            <MenuFlyoutItem Text="Settings"
+                                            Click="FileSettingsMenuItem_Click" />
+                            <MenuFlyoutItem Text="About"
+                                            Click="FileAboutMenuItem_Click" />
+                        </MenuBarItem>
+                        <MenuBarItem Title="Edit">
+                            <MenuFlyoutItem Text="Copy"
+                                            Click="EditCopyMenuItem_Click" />
+                            <MenuFlyoutItem Text="Cut"
+                                            Click="EditCutMenuItem_Click" />
+                            <MenuFlyoutItem Text="Paste"
+                                            Click="EditPasteMenuItem_Click" />
+                            <MenuFlyoutItem Text="Delete"
+                                            Click="EditDeleteMenuItem_Click" />
+                        </MenuBarItem>
+                        <MenuBarItem Title="View">
+                            <MenuFlyoutItem Text="Toggle Side Bar"
+                                            KeyboardAcceleratorTextOverride="Ctrl+B"
+                                            Click="ViewToggleSidebarMenuItem_Click" />
+                            <MenuFlyoutItem Text="Toggle Find"
+                                            KeyboardAcceleratorTextOverride="Ctrl+F"
+                                            Click="ViewToggleFindMenuItem_Click" />
+                        </MenuBarItem>
+                        <MenuBarItem Title="Window">
+                            <MenuFlyoutItem Text="Minimize"
+                                            Click="WindowMinimizeMenuItem_Click" />
+                        </MenuBarItem>
+                        <MenuBarItem Title="Help">
+                            <MenuFlyoutItem Text="GitHub Repository"
+                                            Click="HelpGitHubMenuItem_Click" />
+                        </MenuBarItem>
+                    </MenuBar>
+                </Grid>
+
+                <Grid x:Name="TitleBarDragRegionElement"
+                      Grid.Column="2" />
             </Grid>
-        </NavigationView>
-
-        <Border x:Name="ExpandedObjectStatusBorder"
-                Width="296"
-                Margin="12,68,0,12"
-                Padding="12"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Bottom"
-                Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8">
-            <StackPanel Spacing="10">
-                <TextBlock Text="Object Status"
-                           Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                <StackPanel x:Name="ObjectStatusPanel"
-                            Spacing="6" />
-            </StackPanel>
         </Border>
 
-        <Border x:Name="CompactObjectStatusBorder"
-                Margin="4,68,0,12"
-                Padding="4"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Bottom"
-                Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="18"
-                Visibility="Collapsed">
-            <StackPanel x:Name="CompactObjectStatusPanel"
-                        Spacing="4" />
-        </Border>
+        <Grid Grid.Row="1">
+            <NavigationView x:Name="AppNavigationView"
+                            IsBackButtonVisible="Collapsed"
+                            IsPaneToggleButtonVisible="False"
+                            IsSettingsVisible="False"
+                            PaneDisplayMode="LeftCompact"
+                            SelectionChanged="AppNavigationView_SelectionChanged">
+                <NavigationView.MenuItems>
+                    <NavigationViewItem x:Name="PeopleCodeInterfaceNavigationItem"
+                                        Content="PeopleCode Interface"
+                                        Tag="PeopleCodeInterface">
+                        <NavigationViewItem.Icon>
+                            <SymbolIcon Symbol="Document" />
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+                    <NavigationViewItem x:Name="PeopleCodeOverviewNavigationItem"
+                                        Content="PeopleCode Overview"
+                                        Tag="PeopleCodeOverview">
+                        <NavigationViewItem.Icon>
+                            <SymbolIcon Symbol="PreviewLink" />
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+                    <NavigationViewItem x:Name="ReferenceExplorerNavigationItem"
+                                        Content="Reference Explorer"
+                                        Tag="ReferenceExplorer">
+                        <NavigationViewItem.Icon>
+                            <SymbolIcon Symbol="Library" />
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+                </NavigationView.MenuItems>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <InfoBar x:Name="ShellInfoBar"
+                             Margin="12,12,12,0"
+                             IsOpen="False"
+                             IsClosable="True"
+                             Severity="Warning" />
+
+                    <ContentControl Grid.Row="1"
+                                    x:Name="ContentHost" />
+                </Grid>
+            </NavigationView>
+
+            <Border x:Name="ExpandedObjectStatusBorder"
+                    Width="296"
+                    Margin="12,20,0,12"
+                    Padding="12"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Object Status"
+                               Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                    <StackPanel x:Name="ObjectStatusPanel"
+                                Spacing="6" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="CompactObjectStatusBorder"
+                    Margin="4,20,0,12"
+                    Padding="4"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="18"
+                    Visibility="Collapsed">
+                <StackPanel x:Name="CompactObjectStatusPanel"
+                            Spacing="4" />
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>
