@@ -1,0 +1,37 @@
+[
+  {
+    "name": "CreateRecord",
+    "category": "Function",
+    "signature": "CreateRecord(RECORD.record_name) Returns Record",
+    "imports": "import PS_PT:Integration:Utilities;",
+    "notes": "Creates a standalone record object that can be populated before save processing."
+  },
+  {
+    "name": "GetField",
+    "category": "Method",
+    "signature": "Record.GetField(FIELD.field_name) Returns Field",
+    "imports": "import PS_PT:Common:FieldHelpers;",
+    "notes": "Fetches a field object from the current record and is commonly used before validation."
+  },
+  {
+    "name": "MessageBox",
+    "category": "Function",
+    "signature": "MessageBox(style, title, set, number, default_txt [, paramlist]) Returns Number",
+    "imports": "None",
+    "notes": "Displays a modal message to the user and optionally substitutes values into the message text."
+  },
+  {
+    "name": "SQLExec",
+    "category": "Function",
+    "signature": "SQLExec(sqlstmt [, bindlist], outlist) Returns Boolean",
+    "imports": "import PS_PT:Integration:SqlSupport;",
+    "notes": "Runs a single SQL statement immediately and maps result columns into output variables."
+  },
+  {
+    "name": "Rowset.Fill",
+    "category": "Method",
+    "signature": "Rowset.Fill(where_clause [, bindlist]) Returns Number",
+    "imports": "import PS_PT:Common:RowsetHelpers;",
+    "notes": "Loads rows into an existing rowset using a where clause and optional bind values."
+  }
+]
