@@ -23,6 +23,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
 
     private readonly AllObjectsPeopleCodeBrowserService _browserService = new();
     private readonly DetachedSourceWindowManager _detachedSourceWindowManager;
+    private readonly PeopleCodeCompareWindowManager _compareWindowManager;
     private readonly List<AllObjectsSearchItem> _allResults = [];
     private readonly ObservableCollection<AllObjectsSearchGroup> _visibleGroups = [];
     private readonly ObservableCollection<AllObjectsSearchItem> _visibleResults = [];
@@ -41,6 +42,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     private readonly TextBlock _selectedItemSubtitleTextBlock;
     private readonly TextBlock _metadataSummaryTextBlock;
     private readonly Button _openDetachedSourceButton;
+    private readonly Button _compareSourceButton;
     private readonly Button _previousSourceMatchButton;
     private readonly Button _nextSourceMatchButton;
     private readonly TextBlock _sourceMatchStatusTextBlock;
@@ -57,9 +59,12 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     private IReadOnlyList<TextRange> _currentSourceMatchRanges = Array.Empty<TextRange>();
     private int _activeSourceMatchIndex = -1;
 
-    public AllObjectsPeopleCodeBrowserView(DetachedSourceWindowManager detachedSourceWindowManager)
+    public AllObjectsPeopleCodeBrowserView(
+        DetachedSourceWindowManager detachedSourceWindowManager,
+        PeopleCodeCompareWindowManager compareWindowManager)
     {
         _detachedSourceWindowManager = detachedSourceWindowManager;
+        _compareWindowManager = compareWindowManager;
         _searchTextBox = new TextBox
         {
             PlaceholderText = "Search PeopleCode across App Package, App Engine, Record, Page, and Component"
@@ -138,6 +143,14 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         };
         ToolTipService.SetToolTip(_openDetachedSourceButton, "Open in new window");
         _openDetachedSourceButton.Click += OpenDetachedSourceButton_Click;
+
+        _compareSourceButton = new Button
+        {
+            Content = "Compare",
+            IsEnabled = false
+        };
+        ToolTipService.SetToolTip(_compareSourceButton, "Compare this source with another active profile");
+        _compareSourceButton.Click += CompareSourceButton_Click;
 
         _previousSourceMatchButton = new Button
         {
@@ -241,16 +254,19 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         TextBlock sourceTitle = new() { Text = "PeopleCode Source" };
         sourceTitle.Style = Application.Current.Resources["SubtitleTextBlockStyle"] as Style;
         sourceHeaderGrid.Children.Add(sourceTitle);
         Grid.SetColumn(_openDetachedSourceButton, 1);
         sourceHeaderGrid.Children.Add(_openDetachedSourceButton);
-        Grid.SetColumn(_sourceMatchStatusTextBlock, 2);
+        Grid.SetColumn(_compareSourceButton, 2);
+        sourceHeaderGrid.Children.Add(_compareSourceButton);
+        Grid.SetColumn(_sourceMatchStatusTextBlock, 3);
         sourceHeaderGrid.Children.Add(_sourceMatchStatusTextBlock);
-        Grid.SetColumn(_previousSourceMatchButton, 3);
+        Grid.SetColumn(_previousSourceMatchButton, 4);
         sourceHeaderGrid.Children.Add(_previousSourceMatchButton);
-        Grid.SetColumn(_nextSourceMatchButton, 4);
+        Grid.SetColumn(_nextSourceMatchButton, 5);
         sourceHeaderGrid.Children.Add(_nextSourceMatchButton);
         sourceGrid.Children.Add(sourceHeaderGrid);
 
@@ -458,6 +474,42 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         _detachedSourceWindowManager.Open(BuildDetachedSourceContext());
     }
 
+    private void CompareSourceButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!CanCompareSource() || sender is not FrameworkElement anchor || _session is null)
+        {
+            return;
+        }
+
+        IReadOnlyList<OracleConnectionSession> comparisonProfiles =
+            _compareWindowManager.GetAvailableComparisonProfiles(_session);
+        if (comparisonProfiles.Count == 0)
+        {
+            UpdateCompareChrome();
+            return;
+        }
+
+        MenuFlyout flyout = new();
+        foreach (OracleConnectionSession comparisonProfile in comparisonProfiles)
+        {
+            MenuFlyoutItem menuItem = new()
+            {
+                Text = comparisonProfile.DisplayName
+            };
+            menuItem.Click += async (_, _) =>
+            {
+                PeopleCodeCompareRequest? request = BuildCompareRequest(comparisonProfile);
+                if (request is not null)
+                {
+                    await _compareWindowManager.OpenAsync(request);
+                }
+            };
+            flyout.Items.Add(menuItem);
+        }
+
+        flyout.ShowAt(anchor);
+    }
+
     private async Task SearchAsync()
     {
         if (_session is null)
@@ -663,6 +715,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     private void UpdateDetachedSourceChrome()
     {
         _openDetachedSourceButton.IsEnabled = CanOpenDetachedSource();
+        UpdateCompareChrome();
     }
 
     private DetachedPeopleCodeSourceContext BuildDetachedSourceContext()
@@ -677,6 +730,43 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
             _currentSourceText,
             _activeSearchText,
             useSyntaxHighlighting: true);
+    }
+
+    private bool CanCompareSource()
+    {
+        return _compareWindowManager.CanCompare(_session, _selectedItem is not null && _hasLoadedSelectedSource);
+    }
+
+    private void UpdateCompareChrome()
+    {
+        _compareSourceButton.IsEnabled = CanCompareSource();
+    }
+
+    private PeopleCodeCompareRequest? BuildCompareRequest(OracleConnectionSession comparisonProfile)
+    {
+        if (_session is null || _selectedItem is null || !_hasLoadedSelectedSource)
+        {
+            return null;
+        }
+
+        return new PeopleCodeCompareRequest
+        {
+            LeftSession = _session,
+            RightSession = comparisonProfile,
+            LeftSourceText = _currentSourceText,
+            SourceDescriptor = new PeopleCodeSourceDescriptor
+            {
+                Identity = new PeopleCodeSourceIdentity
+                {
+                    ObjectType = _selectedItem.ObjectType,
+                    SourceKey = _selectedItem.SourceKey
+                },
+                ObjectTitle = _selectedItemTitleTextBlock.Text,
+                ObjectSubtitle = _selectedItemSubtitleTextBlock.Text,
+                MetadataSummary = _metadataSummaryTextBlock.Text,
+                UseSyntaxHighlighting = true
+            }
+        };
     }
 
     private void SetSourceViewerText(string text)

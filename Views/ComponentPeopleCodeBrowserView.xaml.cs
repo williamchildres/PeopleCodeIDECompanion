@@ -21,6 +21,7 @@ public sealed partial class ComponentPeopleCodeBrowserView : UserControl
     private readonly ComponentPeopleCodeBrowserService _browserService = new();
     private readonly PeopleSoftUserNameResolverService _userNameResolver = new();
     private readonly DetachedSourceWindowManager _detachedSourceWindowManager;
+    private readonly PeopleCodeCompareWindowManager _compareWindowManager;
     private readonly List<ComponentPeopleCodeItem> _allItems = [];
     private readonly ObservableCollection<ComponentPeopleCodeComponentKey> _filteredComponents = [];
     private readonly ObservableCollection<ComponentPeopleCodeItem> _filteredItems = [];
@@ -40,9 +41,12 @@ public sealed partial class ComponentPeopleCodeBrowserView : UserControl
     private IReadOnlyList<TextRange> _currentSourceMatchRanges = Array.Empty<TextRange>();
     private int _activeSourceMatchIndex = -1;
 
-    public ComponentPeopleCodeBrowserView(DetachedSourceWindowManager detachedSourceWindowManager)
+    public ComponentPeopleCodeBrowserView(
+        DetachedSourceWindowManager detachedSourceWindowManager,
+        PeopleCodeCompareWindowManager compareWindowManager)
     {
         _detachedSourceWindowManager = detachedSourceWindowManager;
+        _compareWindowManager = compareWindowManager;
         InitializeComponent();
         ComponentsListView.ItemsSource = _filteredComponents;
         ItemsListView.ItemsSource = _filteredItems;
@@ -225,6 +229,42 @@ public sealed partial class ComponentPeopleCodeBrowserView : UserControl
         }
 
         _detachedSourceWindowManager.Open(BuildDetachedSourceContext());
+    }
+
+    private void CompareSourceButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!CanCompareSource() || sender is not FrameworkElement anchor || _session is null)
+        {
+            return;
+        }
+
+        IReadOnlyList<OracleConnectionSession> comparisonProfiles =
+            _compareWindowManager.GetAvailableComparisonProfiles(_session);
+        if (comparisonProfiles.Count == 0)
+        {
+            UpdateCompareChrome();
+            return;
+        }
+
+        MenuFlyout flyout = new();
+        foreach (OracleConnectionSession comparisonProfile in comparisonProfiles)
+        {
+            MenuFlyoutItem menuItem = new()
+            {
+                Text = comparisonProfile.DisplayName
+            };
+            menuItem.Click += async (_, _) =>
+            {
+                PeopleCodeCompareRequest? request = BuildCompareRequest(comparisonProfile);
+                if (request is not null)
+                {
+                    await _compareWindowManager.OpenAsync(request);
+                }
+            };
+            flyout.Items.Add(menuItem);
+        }
+
+        flyout.ShowAt(anchor);
     }
 
     private async Task LoadItemsAsync()
@@ -841,6 +881,7 @@ public sealed partial class ComponentPeopleCodeBrowserView : UserControl
     private void UpdateDetachedSourceChrome()
     {
         OpenDetachedSourceButton.IsEnabled = CanOpenDetachedSource();
+        UpdateCompareChrome();
     }
 
     private DetachedPeopleCodeSourceContext BuildDetachedSourceContext()
@@ -855,6 +896,43 @@ public sealed partial class ComponentPeopleCodeBrowserView : UserControl
             _currentSourceText,
             _isGlobalSearchMode ? _activeGlobalSearchText : null,
             useSyntaxHighlighting: true);
+    }
+
+    private bool CanCompareSource()
+    {
+        return _compareWindowManager.CanCompare(_session, _selectedItem is not null && _hasLoadedSelectedSource);
+    }
+
+    private void UpdateCompareChrome()
+    {
+        CompareSourceButton.IsEnabled = CanCompareSource();
+    }
+
+    private PeopleCodeCompareRequest? BuildCompareRequest(OracleConnectionSession comparisonProfile)
+    {
+        if (_session is null || _selectedItem is null || !_hasLoadedSelectedSource)
+        {
+            return null;
+        }
+
+        return new PeopleCodeCompareRequest
+        {
+            LeftSession = _session,
+            RightSession = comparisonProfile,
+            LeftSourceText = _currentSourceText,
+            SourceDescriptor = new PeopleCodeSourceDescriptor
+            {
+                Identity = new PeopleCodeSourceIdentity
+                {
+                    ObjectType = AllObjectsPeopleCodeBrowserService.ComponentMode,
+                    SourceKey = _selectedItem
+                },
+                ObjectTitle = SelectedItemTitleTextBlock.Text,
+                ObjectSubtitle = SelectedItemSubtitleTextBlock.Text,
+                MetadataSummary = MetadataSummaryTextBlock.Text,
+                UseSyntaxHighlighting = true
+            }
+        };
     }
 
     private sealed class ComponentKeyComparer : IEqualityComparer<ComponentPeopleCodeComponentKey>

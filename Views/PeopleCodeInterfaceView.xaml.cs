@@ -23,6 +23,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
 
     private readonly OracleSessionManager _sessionManager;
     private readonly DetachedSourceWindowManager _detachedSourceWindowManager = new();
+    private readonly PeopleCodeCompareWindowManager _compareWindowManager;
     private readonly Dictionary<string, ProfileWorkspace> _workspaces = [];
     private bool _isUpdatingModeSelection;
     private bool _isUpdatingProfileSelection;
@@ -30,6 +31,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     public PeopleCodeInterfaceView(OracleSessionManager sessionManager)
     {
         _sessionManager = sessionManager;
+        _compareWindowManager = new PeopleCodeCompareWindowManager(sessionManager);
         InitializeComponent();
         KeyboardAccelerators.Add(BuildFindKeyboardAccelerator());
         ProfileComboBox.ItemsSource = ConnectedProfiles;
@@ -76,7 +78,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         }
         else
         {
-            _workspaces[session.ProfileId] = new ProfileWorkspace(session, _detachedSourceWindowManager);
+            _workspaces[session.ProfileId] = new ProfileWorkspace(session, _detachedSourceWindowManager, _compareWindowManager);
         }
 
         SyncProfileSelection(_sessionManager.SelectedSession ?? session);
@@ -175,7 +177,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
             }
             else
             {
-                _workspaces[session.ProfileId] = new ProfileWorkspace(session, _detachedSourceWindowManager);
+                _workspaces[session.ProfileId] = new ProfileWorkspace(session, _detachedSourceWindowManager, _compareWindowManager);
             }
         }
 
@@ -348,16 +350,19 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
 
     private sealed class ProfileWorkspace
     {
-        public ProfileWorkspace(OracleConnectionSession session, DetachedSourceWindowManager detachedSourceWindowManager)
+        public ProfileWorkspace(
+            OracleConnectionSession session,
+            DetachedSourceWindowManager detachedSourceWindowManager,
+            PeopleCodeCompareWindowManager compareWindowManager)
         {
             Session = session;
             StatusStore = new PeopleCodeObjectStatusStore();
-            AllObjectsView = new AllObjectsPeopleCodeBrowserView(detachedSourceWindowManager);
-            AppEngineView = new AppEnginePlaceholderView(detachedSourceWindowManager);
-            AppPackageView = new AppPackageBrowserView(detachedSourceWindowManager);
-            RecordView = new RecordPeopleCodeBrowserView(detachedSourceWindowManager);
-            PageView = new PagePeopleCodeBrowserView(detachedSourceWindowManager);
-            ComponentView = new ComponentPeopleCodeBrowserView(detachedSourceWindowManager);
+            AllObjectsView = new AllObjectsPeopleCodeBrowserView(detachedSourceWindowManager, compareWindowManager);
+            AppEngineView = new AppEnginePlaceholderView(detachedSourceWindowManager, compareWindowManager);
+            AppPackageView = new AppPackageBrowserView(detachedSourceWindowManager, compareWindowManager);
+            RecordView = new RecordPeopleCodeBrowserView(detachedSourceWindowManager, compareWindowManager);
+            PageView = new PagePeopleCodeBrowserView(detachedSourceWindowManager, compareWindowManager);
+            ComponentView = new ComponentPeopleCodeBrowserView(detachedSourceWindowManager, compareWindowManager);
             AppPackageView.SetStatusStore(StatusStore);
             AppEngineView.SetStatusStore(StatusStore);
             RecordView.SetStatusStore(StatusStore);
