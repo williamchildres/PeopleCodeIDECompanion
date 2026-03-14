@@ -176,8 +176,9 @@ public sealed partial class PeopleCodeOverviewView : UserControl
         }
         else
         {
-            DetailTitleTextBlock.Text = "OPRID Detail";
-            DetailStatusTextBlock.Text = "Select an OPRID to view recent PeopleCode updates.";
+            ShowDetailMode();
+            DetailTitleTextBlock.Text = "User Detail";
+            DetailStatusTextBlock.Text = "Select a user to view recent PeopleCode updates.";
             DetailStatusTextBlock.Visibility = Visibility.Visible;
         }
 
@@ -203,12 +204,14 @@ public sealed partial class PeopleCodeOverviewView : UserControl
 
     private async Task LoadOpridDetailAsync(OracleConnectionSession profile, string oprid)
     {
-        DetailTitleTextBlock.Text = $"OPRID Detail: {oprid}";
-        DetailStatusTextBlock.Text = "Loading recent updates for the selected OPRID...";
+        ShowDetailMode();
+        string displayName = OpridsListView.SelectedItem is PeopleCodeAuthorActivityItem author
+            ? author.Title
+            : oprid;
+        DetailTitleTextBlock.Text = $"User Detail: {displayName}";
+        DetailStatusTextBlock.Text = "Loading recent updates for the selected user...";
         DetailStatusTextBlock.Visibility = Visibility.Visible;
         _detailItems.Clear();
-        RepeatedResultsHeaderTextBlock.Visibility = Visibility.Collapsed;
-        RepeatedCodePanel.Visibility = Visibility.Collapsed;
 
         PeopleCodeOverviewDataResult<PeopleCodeOverviewItem> result = await _overviewService.GetRecentUpdatesByOpridAsync(
             profile,
@@ -218,7 +221,7 @@ public sealed partial class PeopleCodeOverviewView : UserControl
 
         _detailItems.ReplaceWith(result.Items);
         DetailStatusTextBlock.Text = _detailItems.Count == 0
-            ? "No recent updates were found for the selected OPRID in the current lookback window."
+            ? "No recent updates were found for the selected user in the current lookback window."
             : string.Empty;
         DetailStatusTextBlock.Visibility = string.IsNullOrWhiteSpace(DetailStatusTextBlock.Text)
             ? Visibility.Collapsed
@@ -241,8 +244,7 @@ public sealed partial class PeopleCodeOverviewView : UserControl
         _detailItems.Clear();
         _repeatedBlocks.Clear();
         _repeatedOccurrences.Clear();
-        RepeatedResultsHeaderTextBlock.Visibility = Visibility.Visible;
-        RepeatedCodePanel.Visibility = Visibility.Visible;
+        ShowRepeatedMode();
         RepeatedBlocksListView.SelectedItem = null;
 
         PeopleCodeRepeatedCodeSearchResult result = await _overviewService.FindRepeatedCodeBlocksAsync(
@@ -368,14 +370,31 @@ public sealed partial class PeopleCodeOverviewView : UserControl
 
     private void ClearDetailPanels()
     {
+        ShowDetailMode();
         _detailItems.Clear();
         _repeatedBlocks.Clear();
         _repeatedOccurrences.Clear();
-        DetailTitleTextBlock.Text = "OPRID Detail";
-        DetailStatusTextBlock.Text = "Select an OPRID to view recent PeopleCode updates.";
+        DetailTitleTextBlock.Text = "User Detail";
+        DetailStatusTextBlock.Text = "Select a user to view recent PeopleCode updates.";
         DetailStatusTextBlock.Visibility = Visibility.Visible;
+    }
+
+    private void ShowDetailMode()
+    {
+        DetailItemsListView.Visibility = Visibility.Visible;
+        DetailListRowDefinition.Height = new GridLength(1, GridUnitType.Star);
         RepeatedResultsHeaderTextBlock.Visibility = Visibility.Collapsed;
         RepeatedCodePanel.Visibility = Visibility.Collapsed;
+        RepeatedPanelRowDefinition.Height = new GridLength(0);
+    }
+
+    private void ShowRepeatedMode()
+    {
+        DetailItemsListView.Visibility = Visibility.Collapsed;
+        DetailListRowDefinition.Height = new GridLength(0);
+        RepeatedResultsHeaderTextBlock.Visibility = Visibility.Visible;
+        RepeatedCodePanel.Visibility = Visibility.Visible;
+        RepeatedPanelRowDefinition.Height = new GridLength(1, GridUnitType.Star);
     }
 
     private void ApplyHeaderMessage(params string[] messages)

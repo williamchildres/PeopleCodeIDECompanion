@@ -159,7 +159,7 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Text="Recently Active OPRIDs"
+                    <TextBlock Text="Recently Active Users"
                                Style="{ThemeResource SubtitleTextBlockStyle}" />
 
                     <TextBlock x:Name="OpridStatusTextBlock"
@@ -176,7 +176,7 @@
                             <DataTemplate>
                                 <StackPanel Padding="8"
                                             Spacing="4">
-                                    <TextBlock Text="{Binding Oprid}"
+                                    <TextBlock Text="{Binding Title}"
                                                Style="{ThemeResource BodyStrongTextBlockStyle}" />
                                     <TextBlock Text="{Binding Subtitle}"
                                                TextWrapping="WrapWholeWords"
@@ -198,13 +198,16 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
+                        <RowDefinition x:Name="DetailListRowDefinition"
+                                       Height="*" />
+                        <RowDefinition x:Name="RepeatedHeaderRowDefinition"
+                                       Height="Auto" />
+                        <RowDefinition x:Name="RepeatedPanelRowDefinition"
+                                       Height="0" />
                     </Grid.RowDefinitions>
 
                     <TextBlock x:Name="DetailTitleTextBlock"
-                               Text="OPRID Detail"
+                               Text="User Detail"
                                Style="{ThemeResource SubtitleTextBlockStyle}" />
 
                     <TextBlock x:Name="DetailStatusTextBlock"
@@ -218,6 +221,7 @@
                               IsItemClickEnabled="True"
                               ItemClick="DetailItemsListView_ItemClick"
                               SelectionMode="None"
+                              Visibility="Visible"
                               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListView.ItemTemplate>
                             <DataTemplate>

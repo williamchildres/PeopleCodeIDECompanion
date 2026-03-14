@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Oracle.ManagedDataAccess.Client;
 using PeopleCodeIDECompanion.Models;
 
 namespace PeopleCodeIDECompanion.Services;
@@ -22,6 +23,7 @@ public sealed class PeopleCodeOverviewService
         CancellationToken cancellationToken = default)
     {
         OverviewItemLoadResult loadResult = await LoadOverviewItemsAsync(profile.Options, cancellationToken);
+        loadResult = await ApplyUserNamesAsync(loadResult, profile.Options, cancellationToken);
         return BuildOverviewResult(
             loadResult,
             loadResult.Items
@@ -40,6 +42,7 @@ public sealed class PeopleCodeOverviewService
         CancellationToken cancellationToken = default)
     {
         OverviewItemLoadResult loadResult = await LoadOverviewItemsAsync(profile.Options, cancellationToken);
+        loadResult = await ApplyUserNamesAsync(loadResult, profile.Options, cancellationToken);
         List<PeopleCodeAuthorActivityItem> items = loadResult.Items
             .Where(item => IsWithinLookback(item.LastUpdatedDateTime, lookbackWindow))
             .Where(item => !string.IsNullOrWhiteSpace(item.LastUpdatedBy))
@@ -47,6 +50,10 @@ public sealed class PeopleCodeOverviewService
             .Select(group => new PeopleCodeAuthorActivityItem
             {
                 Oprid = group.Key,
+                DisplayName = group
+                    .Select(item => item.LastUpdatedByDisplay)
+                    .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
+                    ?? group.Key,
                 MostRecentUpdateDateTime = group.Max(item => item.LastUpdatedDateTime),
                 UpdateCount = group.Count()
             })
@@ -72,6 +79,7 @@ public sealed class PeopleCodeOverviewService
         CancellationToken cancellationToken = default)
     {
         OverviewItemLoadResult loadResult = await LoadOverviewItemsAsync(profile.Options, cancellationToken);
+        loadResult = await ApplyUserNamesAsync(loadResult, profile.Options, cancellationToken);
         return BuildOverviewResult(
             loadResult,
             loadResult.Items
@@ -92,6 +100,7 @@ public sealed class PeopleCodeOverviewService
     {
         _ = scope;
         OverviewItemLoadResult loadResult = await LoadOverviewItemsAsync(profile.Options, cancellationToken);
+        loadResult = await ApplyUserNamesAsync(loadResult, profile.Options, cancellationToken);
         if (!string.IsNullOrWhiteSpace(loadResult.ErrorMessage))
         {
             return new PeopleCodeRepeatedCodeSearchResult
@@ -250,6 +259,135 @@ public sealed class PeopleCodeOverviewService
             Items = items,
             WarningMessage = failures.Count == 0 ? string.Empty : string.Join(" | ", failures)
         };
+    }
+
+    private async Task<OverviewItemLoadResult> ApplyUserNamesAsync(
+        OverviewItemLoadResult loadResult,
+        OracleConnectionOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(loadResult.ErrorMessage) || loadResult.Items.Count == 0)
+        {
+            return loadResult;
+        }
+
+        List<string> numericIds = loadResult.Items
+            .Select(item => item.LastUpdatedBy)
+            .Where(IsNumericOprid)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (numericIds.Count == 0)
+        {
+            return loadResult;
+        }
+
+        UserNameLookupResult userLookupResult = await ResolveUserNamesAsync(options, numericIds, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(userLookupResult.ErrorMessage))
+        {
+            return new OverviewItemLoadResult
+            {
+                Items = loadResult.Items,
+                ErrorMessage = loadResult.ErrorMessage,
+                WarningMessage = CombineMessages(loadResult.WarningMessage, userLookupResult.ErrorMessage)
+            };
+        }
+
+        return new OverviewItemLoadResult
+        {
+            Items = loadResult.Items
+                .Select(item =>
+                {
+                    if (!IsNumericOprid(item.LastUpdatedBy) ||
+                        !userLookupResult.DisplayNamesByOprid.TryGetValue(item.LastUpdatedBy, out string? displayName) ||
+                        string.IsNullOrWhiteSpace(displayName))
+                    {
+                        return item;
+                    }
+
+                    return new PeopleCodeOverviewItem
+                    {
+                        ObjectType = item.ObjectType,
+                        ObjectName = item.ObjectName,
+                        Descriptor = item.Descriptor,
+                        LastUpdatedBy = item.LastUpdatedBy,
+                        LastUpdatedByDisplay = $"{displayName} ({item.LastUpdatedBy})",
+                        LastUpdatedDateTime = item.LastUpdatedDateTime,
+                        SourceKey = item.SourceKey
+                    };
+                })
+                .ToList(),
+            ErrorMessage = loadResult.ErrorMessage,
+            WarningMessage = CombineMessages(loadResult.WarningMessage, userLookupResult.WarningMessage)
+        };
+    }
+
+    private async Task<UserNameLookupResult> ResolveUserNamesAsync(
+        OracleConnectionOptions options,
+        IReadOnlyList<string> oprids,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using OracleConnection connection = new(OracleConnectionStringFactory.Create(options));
+            await connection.OpenAsync(cancellationToken);
+
+            await using OracleCommand command = connection.CreateCommand();
+            command.BindByName = true;
+
+            List<string> parameterNames = [];
+            for (int index = 0; index < oprids.Count; index++)
+            {
+                string parameterName = $"emplid{index}";
+                parameterNames.Add($":{parameterName}");
+                command.Parameters.Add(parameterName, OracleDbType.Varchar2, oprids[index], System.Data.ParameterDirection.Input);
+            }
+
+            command.CommandText = $"""
+SELECT EMPLID, NAME_TYPE, NAME
+FROM PS_NAMES
+WHERE EMPLID IN ({string.Join(", ", parameterNames)})
+""";
+
+            Dictionary<string, List<(string NameType, string Name)>> namesByOprid = new(StringComparer.OrdinalIgnoreCase);
+            await using OracleDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                string emplid = reader.IsDBNull(0) ? string.Empty : reader.GetString(0);
+                string nameType = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+                string name = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
+
+                if (string.IsNullOrWhiteSpace(emplid) || string.IsNullOrWhiteSpace(name))
+                {
+                    continue;
+                }
+
+                if (!namesByOprid.TryGetValue(emplid, out List<(string NameType, string Name)>? names))
+                {
+                    names = [];
+                    namesByOprid[emplid] = names;
+                }
+
+                names.Add((nameType, name));
+            }
+
+            Dictionary<string, string> displayNames = namesByOprid.ToDictionary(
+                pair => pair.Key,
+                pair => SelectPreferredName(pair.Value),
+                StringComparer.OrdinalIgnoreCase);
+
+            return new UserNameLookupResult
+            {
+                DisplayNamesByOprid = displayNames
+            };
+        }
+        catch (Exception exception)
+        {
+            return new UserNameLookupResult
+            {
+                ErrorMessage = $"User-name lookup failed: {exception.Message}"
+            };
+        }
     }
 
     private async Task<SourceTextLoadResult> LoadSourceTextAsync(
@@ -456,6 +594,7 @@ public sealed class PeopleCodeOverviewService
             ObjectName = entry.DisplayName,
             Descriptor = entry.EntryType,
             LastUpdatedBy = entry.LastUpdatedBy,
+            LastUpdatedByDisplay = entry.LastUpdatedBy,
             LastUpdatedDateTime = entry.LastUpdatedDateTime,
             SourceKey = entry
         };
@@ -469,6 +608,7 @@ public sealed class PeopleCodeOverviewService
             ObjectName = item.ProgramName,
             Descriptor = item.DisplayName,
             LastUpdatedBy = item.LastUpdatedBy,
+            LastUpdatedByDisplay = item.LastUpdatedBy,
             LastUpdatedDateTime = item.LastUpdatedDateTime,
             SourceKey = item
         };
@@ -482,6 +622,7 @@ public sealed class PeopleCodeOverviewService
             ObjectName = item.RecordName,
             Descriptor = item.DisplayName,
             LastUpdatedBy = item.LastUpdatedBy,
+            LastUpdatedByDisplay = item.LastUpdatedBy,
             LastUpdatedDateTime = item.LastUpdatedDateTime,
             SourceKey = item
         };
@@ -495,6 +636,7 @@ public sealed class PeopleCodeOverviewService
             ObjectName = item.PageName,
             Descriptor = item.DisplayName,
             LastUpdatedBy = item.LastUpdatedBy,
+            LastUpdatedByDisplay = item.LastUpdatedBy,
             LastUpdatedDateTime = item.LastUpdatedDateTime,
             SourceKey = item
         };
@@ -508,9 +650,37 @@ public sealed class PeopleCodeOverviewService
             ObjectName = item.ComponentName,
             Descriptor = item.DisplayName,
             LastUpdatedBy = item.LastUpdatedBy,
+            LastUpdatedByDisplay = item.LastUpdatedBy,
             LastUpdatedDateTime = item.LastUpdatedDateTime,
             SourceKey = item
         };
+    }
+
+    private static bool IsNumericOprid(string value)
+    {
+        return !string.IsNullOrWhiteSpace(value) && value.All(char.IsDigit);
+    }
+
+    private static string SelectPreferredName(IReadOnlyList<(string NameType, string Name)> names)
+    {
+        (string NameType, string Name)? preferred = names.FirstOrDefault(name =>
+            name.NameType.Equals("PRF", StringComparison.OrdinalIgnoreCase));
+        if (preferred is not null && !string.IsNullOrWhiteSpace(preferred.Value.Name))
+        {
+            return preferred.Value.Name;
+        }
+
+        preferred = names.FirstOrDefault(name =>
+            name.NameType.Equals("PRI", StringComparison.OrdinalIgnoreCase));
+        if (preferred is not null && !string.IsNullOrWhiteSpace(preferred.Value.Name))
+        {
+            return preferred.Value.Name;
+        }
+
+        return names
+            .Select(name => name.Name)
+            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
+            ?? string.Empty;
     }
 
     private sealed class OverviewItemLoadResult
@@ -527,5 +697,15 @@ public sealed class PeopleCodeOverviewService
         public string SourceText { get; init; } = string.Empty;
 
         public string ErrorMessage { get; init; } = string.Empty;
+    }
+
+    private sealed class UserNameLookupResult
+    {
+        public IReadOnlyDictionary<string, string> DisplayNamesByOprid { get; init; } =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        public string ErrorMessage { get; init; } = string.Empty;
+
+        public string WarningMessage { get; init; } = string.Empty;
     }
 }

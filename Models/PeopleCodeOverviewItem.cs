@@ -12,6 +12,8 @@ public sealed class PeopleCodeOverviewItem
 
     public string LastUpdatedBy { get; init; } = string.Empty;
 
+    public string LastUpdatedByDisplay { get; init; } = string.Empty;
+
     public DateTime? LastUpdatedDateTime { get; init; }
 
     public object? SourceKey { get; init; }
@@ -24,5 +26,15 @@ public sealed class PeopleCodeOverviewItem
     public string Subtitle => string.IsNullOrWhiteSpace(Descriptor) ? "No additional descriptor" : Descriptor;
 
     public string LastUpdatedDisplay =>
-        $"{(LastUpdatedDateTime?.ToString("g") ?? "Unknown time")} | {(string.IsNullOrWhiteSpace(LastUpdatedBy) ? "Unknown OPRID" : LastUpdatedBy)}";
+        $"{(LastUpdatedDateTime?.ToString("g") ?? "Unknown time")} | {GetLastUpdatedIdentityLabel()}";
+
+    private string GetLastUpdatedIdentityLabel()
+    {
+        if (!string.IsNullOrWhiteSpace(LastUpdatedByDisplay))
+        {
+            return LastUpdatedByDisplay;
+        }
+
+        return string.IsNullOrWhiteSpace(LastUpdatedBy) ? "Unknown user" : LastUpdatedBy;
+    }
 }
