@@ -15,14 +15,19 @@ namespace PeopleCodeIDECompanion.Views;
 public sealed class AppPackageBrowserView : UserControl
 {
     private readonly AppPackageBrowserService _browserService = new();
+    private readonly List<string> _allPackageRoots = [];
     private readonly List<AppPackageEntry> _allEntries = [];
     private readonly ObservableCollection<AppPackageEntry> _filteredEntries = [];
-    private readonly ObservableCollection<string> _packageRoots = [];
+    private readonly ObservableCollection<string> _filteredPackageRoots = [];
 
     private readonly TextBlock _connectionSummaryTextBlock;
     private readonly Button _refreshButton;
     private readonly InfoBar _inlineErrorInfoBar;
+    private readonly TextBox _packageSearchTextBox;
+    private readonly TextBlock _noPackagesTextBlock;
     private readonly ListView _packageRootsListView;
+    private readonly TextBox _entrySearchTextBox;
+    private readonly TextBlock _noEntriesTextBlock;
     private readonly ListView _entriesListView;
     private readonly TextBlock _selectedEntryTitleTextBlock;
     private readonly TextBlock _selectedEntryTypeTextBlock;
@@ -31,6 +36,7 @@ public sealed class AppPackageBrowserView : UserControl
 
     private OracleConnectionSession? _session;
     private AppPackageEntry? _selectedEntry;
+    private int _sourceLoadVersion;
 
     public AppPackageBrowserView()
     {
@@ -54,11 +60,27 @@ public sealed class AppPackageBrowserView : UserControl
             Severity = InfoBarSeverity.Error
         };
 
+        _packageSearchTextBox = new TextBox
+        {
+            PlaceholderText = "Search packages"
+        };
+        _packageSearchTextBox.TextChanged += PackageSearchTextBox_TextChanged;
+
+        _noPackagesTextBlock = BuildEmptyStateTextBlock("No packages found");
+
         _packageRootsListView = new ListView
         {
-            ItemsSource = _packageRoots
+            ItemsSource = _filteredPackageRoots
         };
         _packageRootsListView.SelectionChanged += PackageRootsListView_SelectionChanged;
+
+        _entrySearchTextBox = new TextBox
+        {
+            PlaceholderText = "Search entries"
+        };
+        _entrySearchTextBox.TextChanged += EntrySearchTextBox_TextChanged;
+
+        _noEntriesTextBlock = BuildEmptyStateTextBlock("No entries found");
 
         _entriesListView = new ListView
         {
@@ -139,8 +161,8 @@ public sealed class AppPackageBrowserView : UserControl
         Grid.SetRow(contentGrid, 2);
         root.Children.Add(contentGrid);
 
-        contentGrid.Children.Add(BuildSectionBorder("Packages", _packageRootsListView));
-        Border entriesHost = BuildSectionBorder("Entries", _entriesListView);
+        contentGrid.Children.Add(BuildSectionBorder("Packages", _packageSearchTextBox, _packageRootsListView, _noPackagesTextBlock));
+        Border entriesHost = BuildSectionBorder("Entries", _entrySearchTextBox, _entriesListView, _noEntriesTextBlock);
         Grid.SetColumn(entriesHost, 1);
         contentGrid.Children.Add(entriesHost);
 
@@ -181,14 +203,27 @@ public sealed class AppPackageBrowserView : UserControl
         return root;
     }
 
-    private static Border BuildSectionBorder(string title, ListView listView)
+    private static Border BuildSectionBorder(string title, TextBox searchTextBox, ListView listView, TextBlock emptyStateTextBlock)
     {
         StackPanel stack = new() { Spacing = 8 };
         TextBlock titleBlock = new() { Text = title };
         titleBlock.Style = Application.Current.Resources["SubtitleTextBlockStyle"] as Style;
         stack.Children.Add(titleBlock);
+        stack.Children.Add(searchTextBox);
         stack.Children.Add(listView);
+        stack.Children.Add(emptyStateTextBlock);
         return BuildPlainBorder(stack);
+    }
+
+    private static TextBlock BuildEmptyStateTextBlock(string text)
+    {
+        return new TextBlock
+        {
+            Text = text,
+            Visibility = Visibility.Collapsed,
+            Foreground = Application.Current.Resources["TextFillColorSecondaryBrush"] as Brush,
+            TextWrapping = TextWrapping.WrapWholeWords
+        };
     }
 
     private static Border BuildPlainBorder(UIElement child)
@@ -221,14 +256,25 @@ public sealed class AppPackageBrowserView : UserControl
         await LoadEntriesAsync();
     }
 
+    private void PackageSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        ApplyPackageSearchFilter();
+    }
+
+    private void EntrySearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        ApplyEntryFilter();
+    }
+
     private void PackageRootsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        ApplyPackageFilter(_packageRootsListView.SelectedItem as string);
+        ApplyEntryFilter();
     }
 
     private async void EntriesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         _selectedEntry = _entriesListView.SelectedItem as AppPackageEntry;
+        int sourceLoadVersion = ++_sourceLoadVersion;
         SetMetadata(_selectedEntry);
 
         if (_selectedEntry is null || _session is null)
@@ -241,6 +287,10 @@ public sealed class AppPackageBrowserView : UserControl
         _sourceTextBox.Text = "Loading PeopleCode source...";
 
         AppPackageSourceResult result = await _browserService.GetSourceAsync(_session.Options, _selectedEntry);
+        if (sourceLoadVersion != _sourceLoadVersion || !ReferenceEquals(_selectedEntry, _entriesListView.SelectedItem))
+        {
+            return;
+        }
 
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
@@ -264,10 +314,14 @@ public sealed class AppPackageBrowserView : UserControl
 
         _inlineErrorInfoBar.IsOpen = false;
         _sourceTextBox.Text = string.Empty;
-        _packageRoots.Clear();
+        _allPackageRoots.Clear();
+        _filteredPackageRoots.Clear();
         _filteredEntries.Clear();
         _allEntries.Clear();
         _selectedEntry = null;
+        _sourceLoadVersion++;
+        _packageSearchTextBox.Text = string.Empty;
+        _entrySearchTextBox.Text = string.Empty;
         SetMetadata(null);
         _metadataSummaryTextBlock.Text = "Loading App Package metadata...";
 
@@ -289,13 +343,12 @@ public sealed class AppPackageBrowserView : UserControl
                      .Distinct(StringComparer.OrdinalIgnoreCase)
                      .OrderBy(packageRoot => packageRoot, StringComparer.OrdinalIgnoreCase))
         {
-            _packageRoots.Add(packageRoot);
+            _allPackageRoots.Add(packageRoot);
         }
 
-        if (_packageRoots.Count > 0)
+        if (_allPackageRoots.Count > 0)
         {
-            _packageRootsListView.SelectedItem = _packageRoots[0];
-            ApplyPackageFilter(_packageRoots[0]);
+            ApplyPackageSearchFilter();
         }
         else
         {
@@ -303,15 +356,64 @@ public sealed class AppPackageBrowserView : UserControl
         }
     }
 
-    private void ApplyPackageFilter(string? packageRoot)
+    private void ApplyPackageSearchFilter()
     {
+        string? previouslySelectedPackage = _packageRootsListView.SelectedItem as string;
+        string searchText = _packageSearchTextBox.Text.Trim();
+
+        _filteredPackageRoots.Clear();
+
+        IEnumerable<string> matches = _allPackageRoots;
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            matches = matches.Where(packageRoot =>
+                packageRoot.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+        }
+
+        foreach (string packageRoot in matches)
+        {
+            _filteredPackageRoots.Add(packageRoot);
+        }
+
+        _noPackagesTextBlock.Visibility = _filteredPackageRoots.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        string? nextPackage = _filteredPackageRoots.FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(previouslySelectedPackage) &&
+            _filteredPackageRoots.Contains(previouslySelectedPackage, StringComparer.OrdinalIgnoreCase))
+        {
+            nextPackage = previouslySelectedPackage;
+        }
+
+        if (!string.Equals(_packageRootsListView.SelectedItem as string, nextPackage, StringComparison.OrdinalIgnoreCase))
+        {
+            _packageRootsListView.SelectedItem = nextPackage;
+        }
+
+        ApplyEntryFilter();
+    }
+
+    private void ApplyEntryFilter()
+    {
+        string? selectedPackage = _packageRootsListView.SelectedItem as string;
+        AppPackageEntry? previouslySelectedEntry = _selectedEntry;
+        string searchText = _entrySearchTextBox.Text.Trim();
+
         _filteredEntries.Clear();
 
         IEnumerable<AppPackageEntry> matches = _allEntries;
-        if (!string.IsNullOrWhiteSpace(packageRoot))
+        if (!string.IsNullOrWhiteSpace(selectedPackage))
         {
             matches = matches.Where(entry =>
-                entry.PackageRoot.Equals(packageRoot, StringComparison.OrdinalIgnoreCase));
+                entry.PackageRoot.Equals(selectedPackage, StringComparison.OrdinalIgnoreCase));
+        }
+        else
+        {
+            matches = [];
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            matches = matches.Where(entry => EntryMatchesSearch(entry, searchText));
         }
 
         foreach (AppPackageEntry entry in matches)
@@ -319,9 +421,46 @@ public sealed class AppPackageBrowserView : UserControl
             _filteredEntries.Add(entry);
         }
 
-        _entriesListView.SelectedItem = _filteredEntries.FirstOrDefault();
-        _sourceTextBox.Text = string.Empty;
-        SetMetadata(_entriesListView.SelectedItem as AppPackageEntry);
+        _noEntriesTextBlock.Visibility =
+            !string.IsNullOrWhiteSpace(selectedPackage) && _filteredEntries.Count == 0
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+        AppPackageEntry? nextEntry = _filteredEntries.FirstOrDefault();
+        if (previouslySelectedEntry is not null && _filteredEntries.Contains(previouslySelectedEntry))
+        {
+            nextEntry = previouslySelectedEntry;
+        }
+
+        if (!ReferenceEquals(_entriesListView.SelectedItem, nextEntry))
+        {
+            _entriesListView.SelectedItem = nextEntry;
+        }
+
+        if (nextEntry is null)
+        {
+            _selectedEntry = null;
+            _sourceLoadVersion++;
+            _sourceTextBox.Text = string.Empty;
+            SetMetadata(null);
+            return;
+        }
+
+        _selectedEntry = nextEntry;
+        SetMetadata(nextEntry);
+    }
+
+    private static bool EntryMatchesSearch(AppPackageEntry entry, string searchText)
+    {
+        return entry.DisplayName.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || entry.EntryType.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || entry.PackageRoot.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || entry.ObjectValue2.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || entry.ObjectValue3.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || entry.ObjectValue4.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || entry.ObjectValue5.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || entry.ObjectValue6.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || entry.ObjectValue7.Contains(searchText, StringComparison.OrdinalIgnoreCase);
     }
 
     private void SetMetadata(AppPackageEntry? entry)
