@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +11,8 @@ namespace PeopleCodeIDECompanion.Services;
 
 public sealed class PeopleCodeOverviewService
 {
+    private static readonly TimeSpan UserLookupTimeout = TimeSpan.FromSeconds(10);
+
     private readonly AppPackageBrowserService _appPackageBrowserService = new();
     private readonly AppEngineBrowserService _appEngineBrowserService = new();
     private readonly RecordPeopleCodeBrowserService _recordPeopleCodeBrowserService = new();
@@ -22,11 +25,11 @@ public sealed class PeopleCodeOverviewService
         int limit,
         CancellationToken cancellationToken = default)
     {
-        OverviewItemLoadResult loadResult = await LoadOverviewItemsAsync(profile.Options, cancellationToken);
+        OverviewItemLoadResult loadResult = await LoadOverviewItemsAsync(profile, cancellationToken);
         loadResult = await ApplyUserNamesAsync(loadResult, profile.Options, cancellationToken);
         return BuildOverviewResult(
             loadResult,
-            loadResult.Items
+            ApplyOverviewFilters(loadResult.Items, profile.OverviewSettings)
                 .Where(item => IsWithinLookback(item.LastUpdatedDateTime, lookbackWindow))
                 .OrderByDescending(item => item.LastUpdatedDateTime ?? DateTime.MinValue)
                 .ThenBy(item => item.ObjectType, StringComparer.OrdinalIgnoreCase)
@@ -41,9 +44,9 @@ public sealed class PeopleCodeOverviewService
         int limit,
         CancellationToken cancellationToken = default)
     {
-        OverviewItemLoadResult loadResult = await LoadOverviewItemsAsync(profile.Options, cancellationToken);
+        OverviewItemLoadResult loadResult = await LoadOverviewItemsAsync(profile, cancellationToken);
         loadResult = await ApplyUserNamesAsync(loadResult, profile.Options, cancellationToken);
-        List<PeopleCodeAuthorActivityItem> items = loadResult.Items
+        List<PeopleCodeAuthorActivityItem> items = ApplyOverviewFilters(loadResult.Items, profile.OverviewSettings)
             .Where(item => IsWithinLookback(item.LastUpdatedDateTime, lookbackWindow))
             .Where(item => !string.IsNullOrWhiteSpace(item.LastUpdatedBy))
             .GroupBy(item => item.LastUpdatedBy, StringComparer.OrdinalIgnoreCase)
@@ -78,11 +81,11 @@ public sealed class PeopleCodeOverviewService
         int limit,
         CancellationToken cancellationToken = default)
     {
-        OverviewItemLoadResult loadResult = await LoadOverviewItemsAsync(profile.Options, cancellationToken);
+        OverviewItemLoadResult loadResult = await LoadOverviewItemsAsync(profile, cancellationToken);
         loadResult = await ApplyUserNamesAsync(loadResult, profile.Options, cancellationToken);
         return BuildOverviewResult(
             loadResult,
-            loadResult.Items
+            ApplyOverviewFilters(loadResult.Items, profile.OverviewSettings)
                 .Where(item => IsWithinLookback(item.LastUpdatedDateTime, lookbackWindow))
                 .Where(item => item.LastUpdatedBy.Equals(oprid, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(item => item.LastUpdatedDateTime ?? DateTime.MinValue)
@@ -92,6 +95,57 @@ public sealed class PeopleCodeOverviewService
                 .ToList());
     }
 
+    public async Task<PeopleCodeOverviewSnapshotResult> GetOverviewSnapshotAsync(
+        OracleConnectionSession profile,
+        TimeSpan lookbackWindow,
+        int recentItemLimit,
+        int recentAuthorLimit,
+        CancellationToken cancellationToken = default)
+    {
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        OverviewItemLoadResult loadResult = await LoadOverviewItemsAsync(profile, cancellationToken);
+        loadResult = await ApplyUserNamesAsync(loadResult, profile.Options, cancellationToken);
+
+        List<PeopleCodeOverviewItem> filteredItems = ApplyOverviewFilters(loadResult.Items, profile.OverviewSettings)
+            .Where(item => IsWithinLookback(item.LastUpdatedDateTime, lookbackWindow))
+            .ToList();
+
+        List<PeopleCodeOverviewItem> recentUpdates = filteredItems
+            .OrderByDescending(item => item.LastUpdatedDateTime ?? DateTime.MinValue)
+            .ThenBy(item => item.ObjectType, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.ObjectName, StringComparer.OrdinalIgnoreCase)
+            .Take(recentItemLimit)
+            .ToList();
+
+        List<PeopleCodeAuthorActivityItem> recentAuthors = filteredItems
+            .Where(item => !string.IsNullOrWhiteSpace(item.LastUpdatedBy))
+            .GroupBy(item => item.LastUpdatedBy, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new PeopleCodeAuthorActivityItem
+            {
+                Oprid = group.Key,
+                DisplayName = group
+                    .Select(item => item.LastUpdatedByDisplay)
+                    .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
+                    ?? group.Key,
+                MostRecentUpdateDateTime = group.Max(item => item.LastUpdatedDateTime),
+                UpdateCount = group.Count()
+            })
+            .OrderByDescending(item => item.MostRecentUpdateDateTime ?? DateTime.MinValue)
+            .ThenByDescending(item => item.UpdateCount)
+            .ThenBy(item => item.Oprid, StringComparer.OrdinalIgnoreCase)
+            .Take(recentAuthorLimit)
+            .ToList();
+
+        return new PeopleCodeOverviewSnapshotResult
+        {
+            RecentUpdates = recentUpdates,
+            RecentAuthors = recentAuthors,
+            LoadDuration = stopwatch.Elapsed,
+            ErrorMessage = loadResult.ErrorMessage,
+            WarningMessage = loadResult.WarningMessage
+        };
+    }
+
     public async Task<PeopleCodeRepeatedCodeSearchResult> FindRepeatedCodeBlocksAsync(
         OracleConnectionSession profile,
         string scope,
@@ -99,7 +153,7 @@ public sealed class PeopleCodeOverviewService
         CancellationToken cancellationToken = default)
     {
         _ = scope;
-        OverviewItemLoadResult loadResult = await LoadOverviewItemsAsync(profile.Options, cancellationToken);
+        OverviewItemLoadResult loadResult = await LoadOverviewItemsAsync(profile, cancellationToken);
         loadResult = await ApplyUserNamesAsync(loadResult, profile.Options, cancellationToken);
         if (!string.IsNullOrWhiteSpace(loadResult.ErrorMessage))
         {
@@ -109,7 +163,7 @@ public sealed class PeopleCodeOverviewService
             };
         }
 
-        List<PeopleCodeOverviewItem> scanCandidates = loadResult.Items
+        List<PeopleCodeOverviewItem> scanCandidates = ApplyOverviewFilters(loadResult.Items, profile.OverviewSettings)
             .Where(item => item.SourceKey is not null)
             .OrderByDescending(item => item.LastUpdatedDateTime ?? DateTime.MinValue)
             .ThenBy(item => item.ObjectType, StringComparer.OrdinalIgnoreCase)
@@ -182,14 +236,46 @@ public sealed class PeopleCodeOverviewService
     }
 
     private async Task<OverviewItemLoadResult> LoadOverviewItemsAsync(
-        OracleConnectionOptions options,
+        OracleConnectionSession profile,
         CancellationToken cancellationToken)
     {
-        Task<AppPackageBrowseResult> appPackageTask = _appPackageBrowserService.GetEntriesAsync(options, cancellationToken);
-        Task<AppEngineBrowseResult> appEngineTask = _appEngineBrowserService.GetItemsAsync(options, cancellationToken);
-        Task<RecordPeopleCodeBrowseResult> recordTask = _recordPeopleCodeBrowserService.GetItemsAsync(options, cancellationToken);
-        Task<PagePeopleCodeBrowseResult> pageTask = _pagePeopleCodeBrowserService.GetItemsAsync(options, cancellationToken);
-        Task<ComponentPeopleCodeBrowseResult> componentTask = _componentPeopleCodeBrowserService.GetItemsAsync(options, cancellationToken);
+        OracleConnectionOptions options = profile.Options;
+        PeopleCodeOverviewProfileSettings settings = PeopleCodeOverviewProfileSettings.Normalize(profile.OverviewSettings);
+
+        Task<AppPackageBrowseResult> appPackageTask = ExecuteWithTimeoutAsync(
+            token => _appPackageBrowserService.GetEntriesAsync(options, token),
+            errorMessage => new AppPackageBrowseResult { ErrorMessage = errorMessage },
+            AllObjectsPeopleCodeBrowserService.AppPackageMode,
+            settings.GetTimeout(AllObjectsPeopleCodeBrowserService.AppPackageMode),
+            cancellationToken);
+
+        Task<AppEngineBrowseResult> appEngineTask = ExecuteWithTimeoutAsync(
+            token => _appEngineBrowserService.GetItemsAsync(options, token),
+            errorMessage => new AppEngineBrowseResult { ErrorMessage = errorMessage },
+            AllObjectsPeopleCodeBrowserService.AppEngineMode,
+            settings.GetTimeout(AllObjectsPeopleCodeBrowserService.AppEngineMode),
+            cancellationToken);
+
+        Task<RecordPeopleCodeBrowseResult> recordTask = ExecuteWithTimeoutAsync(
+            token => _recordPeopleCodeBrowserService.GetItemsAsync(options, token),
+            errorMessage => new RecordPeopleCodeBrowseResult { ErrorMessage = errorMessage },
+            AllObjectsPeopleCodeBrowserService.RecordMode,
+            settings.GetTimeout(AllObjectsPeopleCodeBrowserService.RecordMode),
+            cancellationToken);
+
+        Task<PagePeopleCodeBrowseResult> pageTask = ExecuteWithTimeoutAsync(
+            token => _pagePeopleCodeBrowserService.GetItemsAsync(options, token),
+            errorMessage => new PagePeopleCodeBrowseResult { ErrorMessage = errorMessage },
+            AllObjectsPeopleCodeBrowserService.PageMode,
+            settings.GetTimeout(AllObjectsPeopleCodeBrowserService.PageMode),
+            cancellationToken);
+
+        Task<ComponentPeopleCodeBrowseResult> componentTask = ExecuteWithTimeoutAsync(
+            token => _componentPeopleCodeBrowserService.GetItemsAsync(options, token),
+            errorMessage => new ComponentPeopleCodeBrowseResult { ErrorMessage = errorMessage },
+            AllObjectsPeopleCodeBrowserService.ComponentMode,
+            settings.GetTimeout(AllObjectsPeopleCodeBrowserService.ComponentMode),
+            cancellationToken);
 
         await Task.WhenAll(appPackageTask, appEngineTask, recordTask, pageTask, componentTask);
 
@@ -327,10 +413,13 @@ public sealed class PeopleCodeOverviewService
         IReadOnlyList<string> oprids,
         CancellationToken cancellationToken)
     {
+        using CancellationTokenSource timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(UserLookupTimeout);
+
         try
         {
             await using OracleConnection connection = new(OracleConnectionStringFactory.Create(options));
-            await connection.OpenAsync(cancellationToken);
+            await connection.OpenAsync(timeoutCts.Token);
 
             await using OracleCommand command = connection.CreateCommand();
             command.BindByName = true;
@@ -350,8 +439,8 @@ WHERE EMPLID IN ({string.Join(", ", parameterNames)})
 """;
 
             Dictionary<string, List<(string NameType, string Name)>> namesByOprid = new(StringComparer.OrdinalIgnoreCase);
-            await using OracleDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
+            await using OracleDataReader reader = await command.ExecuteReaderAsync(timeoutCts.Token);
+            while (await reader.ReadAsync(timeoutCts.Token))
             {
                 string emplid = reader.IsDBNull(0) ? string.Empty : reader.GetString(0);
                 string nameType = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
@@ -379,6 +468,13 @@ WHERE EMPLID IN ({string.Join(", ", parameterNames)})
             return new UserNameLookupResult
             {
                 DisplayNamesByOprid = displayNames
+            };
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new UserNameLookupResult
+            {
+                ErrorMessage = $"User-name lookup timed out after {UserLookupTimeout.TotalSeconds:0} seconds."
             };
         }
         catch (Exception exception)
@@ -559,6 +655,16 @@ WHERE EMPLID IN ({string.Join(", ", parameterNames)})
         return timestamp is not null && timestamp.Value >= DateTime.Now.Subtract(lookbackWindow);
     }
 
+    private static IEnumerable<PeopleCodeOverviewItem> ApplyOverviewFilters(
+        IEnumerable<PeopleCodeOverviewItem> items,
+        PeopleCodeOverviewProfileSettings? settings)
+    {
+        PeopleCodeOverviewProfileSettings normalized = PeopleCodeOverviewProfileSettings.Normalize(settings);
+        return normalized.IgnorePplsoftModifiedObjects
+            ? items.Where(item => !item.LastUpdatedBy.Equals("PPLSOFT", StringComparison.OrdinalIgnoreCase))
+            : items;
+    }
+
     private static PeopleCodeOverviewDataResult<PeopleCodeOverviewItem> BuildOverviewResult(
         OverviewItemLoadResult loadResult,
         List<PeopleCodeOverviewItem> items)
@@ -681,6 +787,30 @@ WHERE EMPLID IN ({string.Join(", ", parameterNames)})
             .Select(name => name.Name)
             .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
             ?? string.Empty;
+    }
+
+    private static async Task<T> ExecuteWithTimeoutAsync<T>(
+        Func<CancellationToken, Task<T>> operation,
+        Func<string, T> errorFactory,
+        string operationName,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        using CancellationTokenSource timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(timeout);
+
+        try
+        {
+            return await operation(timeoutCts.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return errorFactory($"{operationName} timed out after {timeout.TotalSeconds:0} seconds.");
+        }
+        catch (Exception exception)
+        {
+            return errorFactory(exception.Message);
+        }
     }
 
     private sealed class OverviewItemLoadResult

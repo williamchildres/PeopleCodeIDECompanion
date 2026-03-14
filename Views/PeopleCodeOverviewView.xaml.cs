@@ -26,6 +26,9 @@ public sealed partial class PeopleCodeOverviewView : UserControl
     private readonly ObservableCollection<PeopleCodeRepeatedCodeOccurrence> _repeatedOccurrences = [];
 
     private bool _isUpdatingProfileSelection;
+    private int _refreshRequestId;
+    private int _detailRequestId;
+    private TimeSpan _lastOverviewLoadDuration;
 
     public PeopleCodeOverviewView(OracleSessionManager sessionManager)
     {
@@ -43,6 +46,9 @@ public sealed partial class PeopleCodeOverviewView : UserControl
         _sessionManager.SelectedSessionChanged += SessionManager_SelectedSessionChanged;
 
         LookbackComboBox.SelectedIndex = 1;
+        UpdatePaneCounts();
+        SetDetailHeader("Recent Updates by Selected OPRID", 0);
+        SetFooterStatus("Ready", isLoading: false);
         SyncProfiles();
         UpdateHeader();
     }
@@ -72,22 +78,23 @@ public sealed partial class PeopleCodeOverviewView : UserControl
         }
 
         _sessionManager.SelectSession(session.ProfileId);
-        await RefreshAsync();
+        await RefreshAsync(session);
     }
 
     private async void LookbackComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (SelectedProfile is null)
+        OracleConnectionSession? profile = SelectedProfile ?? _sessionManager.SelectedSession;
+        if (profile is null)
         {
             return;
         }
 
-        await RefreshAsync();
+        await RefreshAsync(profile);
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
     {
-        await RefreshAsync();
+        await RefreshAsync(SelectedProfile ?? _sessionManager.SelectedSession);
     }
 
     private async void RepeatedCodeSearchButton_Click(object sender, RoutedEventArgs e)
@@ -109,6 +116,7 @@ public sealed partial class PeopleCodeOverviewView : UserControl
     {
         if (e.ClickedItem is PeopleCodeOverviewItem item)
         {
+            RecentObjectsListView.SelectedItem = item;
             NavigateToItem(item);
         }
     }
@@ -117,6 +125,7 @@ public sealed partial class PeopleCodeOverviewView : UserControl
     {
         if (e.ClickedItem is PeopleCodeOverviewItem item)
         {
+            DetailItemsListView.SelectedItem = item;
             NavigateToItem(item);
         }
     }
@@ -139,13 +148,18 @@ public sealed partial class PeopleCodeOverviewView : UserControl
     {
         if (e.ClickedItem is PeopleCodeRepeatedCodeOccurrence occurrence)
         {
+            RepeatedOccurrencesListView.SelectedItem = occurrence;
             NavigateToItem(occurrence.Location);
         }
     }
 
-    public async Task RefreshAsync()
+    public Task RefreshAsync()
     {
-        OracleConnectionSession? profile = SelectedProfile ?? _sessionManager.SelectedSession;
+        return RefreshAsync(SelectedProfile ?? _sessionManager.SelectedSession);
+    }
+
+    private async Task RefreshAsync(OracleConnectionSession? profile)
+    {
         if (profile is null)
         {
             ClearData();
@@ -153,22 +167,28 @@ public sealed partial class PeopleCodeOverviewView : UserControl
             return;
         }
 
+        int requestId = ++_refreshRequestId;
+
         SetBusyState(isBusy: true);
+        SetFooterStatus("Refreshing PeopleCode overview...", isLoading: true);
         ClearMessages();
         ClearDetailPanels();
 
-        PeopleCodeOverviewDataResult<PeopleCodeOverviewItem> updatesResult = await _overviewService.GetRecentPeopleCodeUpdatesAsync(
+        PeopleCodeOverviewSnapshotResult snapshot = await _overviewService.GetOverviewSnapshotAsync(
             profile,
             SelectedLookbackWindow,
-            RecentItemLimit);
-
-        PeopleCodeOverviewDataResult<PeopleCodeAuthorActivityItem> authorsResult = await _overviewService.GetRecentPeopleCodeAuthorsAsync(
-            profile,
-            SelectedLookbackWindow,
+            RecentItemLimit,
             RecentAuthorLimit);
 
-        _recentUpdates.ReplaceWith(updatesResult.Items);
-        _recentAuthors.ReplaceWith(authorsResult.Items);
+        if (!IsCurrentRefreshRequest(requestId, profile.ProfileId))
+        {
+            return;
+        }
+
+        _lastOverviewLoadDuration = snapshot.LoadDuration;
+        _recentUpdates.ReplaceWith(snapshot.RecentUpdates);
+        _recentAuthors.ReplaceWith(snapshot.RecentAuthors);
+        UpdatePaneCounts();
 
         if (_recentAuthors.Count > 0)
         {
@@ -177,7 +197,7 @@ public sealed partial class PeopleCodeOverviewView : UserControl
         else
         {
             ShowDetailMode();
-            DetailTitleTextBlock.Text = "User Detail";
+            SetDetailHeader("Recent Updates by Selected OPRID", 0);
             DetailStatusTextBlock.Text = "Select a user to view recent PeopleCode updates.";
             DetailStatusTextBlock.Visibility = Visibility.Visible;
         }
@@ -196,22 +216,32 @@ public sealed partial class PeopleCodeOverviewView : UserControl
             ? Visibility.Collapsed
             : Visibility.Visible;
 
-        ApplyHeaderMessage(updatesResult.ErrorMessage, authorsResult.ErrorMessage, updatesResult.WarningMessage, authorsResult.WarningMessage);
+        ApplyHeaderMessage(snapshot.ErrorMessage, string.Empty, snapshot.WarningMessage);
 
         SetBusyState(isBusy: false);
+        if (!string.IsNullOrWhiteSpace(snapshot.ErrorMessage))
+        {
+            SetFooterStatus("Refresh completed with issues", isLoading: false);
+        }
+        else
+        {
+            SetFooterStatus(BuildRefreshCompleteStatus(), isLoading: false);
+        }
         UpdateHeader();
     }
 
     private async Task LoadOpridDetailAsync(OracleConnectionSession profile, string oprid)
     {
+        int requestId = ++_detailRequestId;
         ShowDetailMode();
         string displayName = OpridsListView.SelectedItem is PeopleCodeAuthorActivityItem author
-            ? author.Title
+            ? author.HeaderLabel
             : oprid;
-        DetailTitleTextBlock.Text = $"User Detail: {displayName}";
+        SetDetailHeader($"Recent Updates by {displayName}");
         DetailStatusTextBlock.Text = "Loading recent updates for the selected user...";
         DetailStatusTextBlock.Visibility = Visibility.Visible;
         _detailItems.Clear();
+        UpdateHeader();
 
         PeopleCodeOverviewDataResult<PeopleCodeOverviewItem> result = await _overviewService.GetRecentUpdatesByOpridAsync(
             profile,
@@ -219,7 +249,13 @@ public sealed partial class PeopleCodeOverviewView : UserControl
             SelectedLookbackWindow,
             OpridDetailLimit);
 
+        if (!IsCurrentDetailRequest(requestId, profile.ProfileId, oprid))
+        {
+            return;
+        }
+
         _detailItems.ReplaceWith(result.Items);
+        SetDetailHeader($"Recent Updates by {displayName}", _detailItems.Count);
         DetailStatusTextBlock.Text = _detailItems.Count == 0
             ? "No recent updates were found for the selected user in the current lookback window."
             : string.Empty;
@@ -228,6 +264,7 @@ public sealed partial class PeopleCodeOverviewView : UserControl
             : Visibility.Visible;
 
         ApplyHeaderMessage(result.ErrorMessage, string.Empty, result.WarningMessage);
+        UpdateHeader();
     }
 
     private async Task RunRepeatedCodeSearchAsync()
@@ -238,14 +275,17 @@ public sealed partial class PeopleCodeOverviewView : UserControl
             return;
         }
 
-        DetailTitleTextBlock.Text = "Repeated Code Search";
+        SetDetailHeader("Repeated Code Search");
         DetailStatusTextBlock.Text = "Scanning PeopleCode source blocks...";
         DetailStatusTextBlock.Visibility = Visibility.Visible;
+        SetFooterStatus("Scanning repeated code blocks...", isLoading: true);
         _detailItems.Clear();
         _repeatedBlocks.Clear();
         _repeatedOccurrences.Clear();
         ShowRepeatedMode();
         RepeatedBlocksListView.SelectedItem = null;
+        RepeatedResultsHeaderTextBlock.Text = "Repeated Code Blocks";
+        UpdateHeader();
 
         PeopleCodeRepeatedCodeSearchResult result = await _overviewService.FindRepeatedCodeBlocksAsync(
             profile,
@@ -253,6 +293,10 @@ public sealed partial class PeopleCodeOverviewView : UserControl
             new PeopleCodeRepeatedCodeSearchOptions());
 
         _repeatedBlocks.ReplaceWith(result.Blocks);
+        SetDetailHeader("Repeated Code Search", _repeatedBlocks.Count);
+        RepeatedResultsHeaderTextBlock.Text = _repeatedBlocks.Count == 0
+            ? "Repeated Code Blocks"
+            : $"Repeated Code Blocks ({_repeatedBlocks.Count})";
         if (_repeatedBlocks.Count > 0)
         {
             RepeatedBlocksListView.SelectedIndex = 0;
@@ -266,6 +310,15 @@ public sealed partial class PeopleCodeOverviewView : UserControl
         DetailStatusTextBlock.Visibility = Visibility.Visible;
 
         ApplyHeaderMessage(result.ErrorMessage, string.Empty, result.WarningMessage);
+        if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+        {
+            SetFooterStatus("Repeated code scan completed with issues", isLoading: false);
+        }
+        else
+        {
+            SetFooterStatus(BuildRefreshCompleteStatus(), isLoading: false);
+        }
+        UpdateHeader();
     }
 
     private void NavigateToItem(PeopleCodeOverviewItem item)
@@ -328,12 +381,8 @@ public sealed partial class PeopleCodeOverviewView : UserControl
         RefreshButton.IsEnabled = hasProfiles;
         RepeatedCodeSearchButton.IsEnabled = hasProfiles;
 
-        ActiveProfileSummaryTextBlock.Text = session is null
-            ? "No database selected."
-            : $"{session.DisplayName} | {session.Options.Username} @ {session.Options.Host}:{session.Options.Port}/{session.Options.ServiceName}";
-
         SummaryTextBlock.Text = hasProfiles
-            ? "Review recent PeopleCode activity, active OPRIDs, and bounded repeated-code findings for the selected profile."
+            ? BuildHeaderContext(session)
             : "Connect to at least one Oracle profile to view PeopleCode overview data.";
     }
 
@@ -363,20 +412,68 @@ public sealed partial class PeopleCodeOverviewView : UserControl
 
     private void ClearData()
     {
+        RecentObjectsListView.SelectedItem = null;
+        OpridsListView.SelectedItem = null;
         _recentUpdates.Clear();
         _recentAuthors.Clear();
         ClearDetailPanels();
+        UpdatePaneCounts();
+        SetFooterStatus(_connectedProfiles.Count == 0 ? "Connect to a database profile to load overview data." : "Ready", isLoading: false);
     }
 
     private void ClearDetailPanels()
     {
         ShowDetailMode();
+        DetailItemsListView.SelectedItem = null;
+        RepeatedBlocksListView.SelectedItem = null;
+        RepeatedOccurrencesListView.SelectedItem = null;
         _detailItems.Clear();
         _repeatedBlocks.Clear();
         _repeatedOccurrences.Clear();
-        DetailTitleTextBlock.Text = "User Detail";
+        SetDetailHeader("Recent Updates by Selected OPRID", 0);
+        RepeatedResultsHeaderTextBlock.Text = "Repeated Code Blocks";
         DetailStatusTextBlock.Text = "Select a user to view recent PeopleCode updates.";
         DetailStatusTextBlock.Visibility = Visibility.Visible;
+    }
+
+    private void SetFooterStatus(string text, bool isLoading)
+    {
+        FooterStatusTextBlock.Text = text;
+        FooterLoadingProgressRing.IsActive = isLoading;
+        FooterLoadingProgressRing.Visibility = isLoading ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private string BuildRefreshCompleteStatus()
+    {
+        string pplsoftSegment = (SelectedProfile ?? _sessionManager.SelectedSession)?.OverviewSettings.IgnorePplsoftModifiedObjects == true
+            ? " with PPLSOFT ignored"
+            : string.Empty;
+        return $"Overview loaded {_recentUpdates.Count} objects and {_recentAuthors.Count} OPRIDs{pplsoftSegment} in {_lastOverviewLoadDuration.TotalSeconds:F1}s at {DateTime.Now:h:mm tt}";
+    }
+
+    private bool IsCurrentRefreshRequest(int requestId, string profileId)
+    {
+        OracleConnectionSession? currentProfile = SelectedProfile ?? _sessionManager.SelectedSession;
+        return requestId == _refreshRequestId &&
+               currentProfile is not null &&
+               currentProfile.ProfileId.Equals(profileId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsCurrentDetailRequest(int requestId, string profileId, string oprid)
+    {
+        if (_detailRequestId != requestId)
+        {
+            return false;
+        }
+
+        OracleConnectionSession? currentProfile = SelectedProfile ?? _sessionManager.SelectedSession;
+        if (currentProfile is null || !currentProfile.ProfileId.Equals(profileId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return OpridsListView.SelectedItem is PeopleCodeAuthorActivityItem selectedAuthor &&
+               selectedAuthor.Oprid.Equals(oprid, StringComparison.OrdinalIgnoreCase);
     }
 
     private void ShowDetailMode()
@@ -423,6 +520,79 @@ public sealed partial class PeopleCodeOverviewView : UserControl
         return LookbackComboBox.SelectedItem is ComboBoxItem { Tag: string tag } && int.TryParse(tag, out int days)
             ? days
             : 14;
+    }
+
+    private string BuildHeaderContext(OracleConnectionSession? session)
+    {
+        if (session is null)
+        {
+            return "No database selected.";
+        }
+
+        List<string> segments =
+        [
+            session.DisplayName
+        ];
+
+        if (!string.IsNullOrWhiteSpace(session.Options.Username))
+        {
+            segments.Add($"Session {session.Options.Username}");
+        }
+
+        string target = BuildConnectionTarget(session);
+        if (!string.IsNullOrWhiteSpace(target))
+        {
+            segments.Add(target);
+        }
+
+        if (RepeatedCodePanel.Visibility == Visibility.Visible)
+        {
+            segments.Add("Repeated code scan");
+        }
+        else if (OpridsListView.SelectedItem is PeopleCodeAuthorActivityItem author)
+        {
+            segments.Add($"OPRID {author.HeaderLabel}");
+        }
+
+        if (session.OverviewSettings.IgnorePplsoftModifiedObjects)
+        {
+            segments.Add("PPLSOFT hidden");
+        }
+
+        return string.Join(" | ", segments.Where(segment => !string.IsNullOrWhiteSpace(segment)));
+    }
+
+    private string BuildConnectionTarget(OracleConnectionSession session)
+    {
+        string host = string.IsNullOrWhiteSpace(session.Options.Host)
+            ? string.Empty
+            : $"{session.Options.Host}:{session.Options.Port}";
+
+        if (string.IsNullOrWhiteSpace(session.Options.ServiceName))
+        {
+            return host;
+        }
+
+        return string.IsNullOrWhiteSpace(host)
+            ? session.Options.ServiceName
+            : $"{host}/{session.Options.ServiceName}";
+    }
+
+    private void UpdatePaneCounts()
+    {
+        RecentObjectsCountTextBlock.Text = FormatCount(_recentUpdates.Count);
+        OpridsCountTextBlock.Text = FormatCount(_recentAuthors.Count);
+    }
+
+    private void SetDetailHeader(string title, int? count = null)
+    {
+        DetailTitleTextBlock.Text = title;
+        DetailCountTextBlock.Text = count.HasValue ? FormatCount(count.Value) : string.Empty;
+    }
+
+    private static string FormatCount(int count)
+    {
+        return $"({count})";
     }
 }
 

@@ -7,12 +7,154 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Padding="24"
-          RowSpacing="12">
+    <UserControl.Resources>
+        <Style x:Key="OverviewListViewItemStyle"
+               TargetType="ListViewItem">
+            <Setter Property="UseSystemFocusVisuals"
+                    Value="True" />
+            <Setter Property="HorizontalContentAlignment"
+                    Value="Stretch" />
+            <Setter Property="VerticalContentAlignment"
+                    Value="Stretch" />
+            <Setter Property="MinHeight"
+                    Value="0" />
+            <Setter Property="Padding"
+                    Value="0" />
+            <Setter Property="Margin"
+                    Value="0,0,0,4" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Grid Background="Transparent">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="ItemBorder.Background"
+                                                    Value="{ThemeResource ControlFillColorTertiaryBrush}" />
+                                            <Setter Target="ItemBorder.BorderBrush"
+                                                    Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="ItemBorder.Background"
+                                                    Value="{ThemeResource ControlFillColorSecondaryBrush}" />
+                                            <Setter Target="ItemBorder.BorderBrush"
+                                                    Value="{ThemeResource AccentFillColorSecondaryBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="ItemBorder.Opacity"
+                                                    Value="0.6" />
+                                            <Setter Target="ContentHost.Opacity"
+                                                    Value="0.6" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="SelectionStates">
+                                    <VisualState x:Name="Unselected" />
+                                    <VisualState x:Name="Selected">
+                                        <VisualState.Setters>
+                                            <Setter Target="ItemBorder.Background"
+                                                    Value="{ThemeResource ControlFillColorSecondaryBrush}" />
+                                            <Setter Target="ItemBorder.BorderBrush"
+                                                    Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                                            <Setter Target="SelectionAccent.Opacity"
+                                                    Value="1" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="SelectedUnfocused">
+                                        <VisualState.Setters>
+                                            <Setter Target="ItemBorder.Background"
+                                                    Value="{ThemeResource ControlFillColorSecondaryBrush}" />
+                                            <Setter Target="ItemBorder.BorderBrush"
+                                                    Value="{ThemeResource AccentFillColorSecondaryBrush}" />
+                                            <Setter Target="SelectionAccent.Opacity"
+                                                    Value="1" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="SelectedPointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="ItemBorder.Background"
+                                                    Value="{ThemeResource ControlFillColorTertiaryBrush}" />
+                                            <Setter Target="ItemBorder.BorderBrush"
+                                                    Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                                            <Setter Target="SelectionAccent.Opacity"
+                                                    Value="1" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+
+                            <Border x:Name="ItemBorder"
+                                    Margin="1"
+                                    Background="Transparent"
+                                    BorderBrush="Transparent"
+                                    BorderThickness="1"
+                                    CornerRadius="8" />
+
+                            <Rectangle x:Name="SelectionAccent"
+                                       Width="3"
+                                       Margin="1,8,0,8"
+                                       HorizontalAlignment="Left"
+                                       Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                                       Opacity="0"
+                                       RadiusX="1.5"
+                                       RadiusY="1.5" />
+
+                            <ContentPresenter x:Name="ContentHost"
+                                              Margin="12,8,12,8"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="OverviewListViewStyle"
+               TargetType="ListView">
+            <Setter Property="SelectionMode"
+                    Value="Single" />
+            <Setter Property="ItemContainerStyle"
+                    Value="{StaticResource OverviewListViewItemStyle}" />
+            <Setter Property="IsHoldingEnabled"
+                    Value="False" />
+            <Setter Property="Background"
+                    Value="Transparent" />
+            <Setter Property="BorderThickness"
+                    Value="0" />
+        </Style>
+
+        <Style x:Key="ObjectTypeBadgeBorderStyle"
+               TargetType="Border">
+            <Setter Property="Padding"
+                    Value="8,3" />
+            <Setter Property="CornerRadius"
+                    Value="5" />
+            <Setter Property="Background"
+                    Value="{ThemeResource ControlFillColorTertiaryBrush}" />
+            <Setter Property="BorderBrush"
+                    Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness"
+                    Value="1" />
+            <Setter Property="VerticalAlignment"
+                    Value="Top" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Padding="20,16,20,12"
+          RowSpacing="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Grid ColumnSpacing="16">
@@ -21,67 +163,73 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Spacing="4">
+            <Grid RowSpacing="3"
+                  HorizontalAlignment="Left"
+                  MaxWidth="860">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
                 <TextBlock Text="PeopleCode Overview"
-                           Style="{ThemeResource TitleTextBlockStyle}" />
-                <TextBlock x:Name="ActiveProfileSummaryTextBlock"
-                           Style="{ThemeResource BodyStrongTextBlockStyle}"
-                           TextWrapping="WrapWholeWords" />
+                           Style="{ThemeResource SubtitleTextBlockStyle}" />
+
                 <TextBlock x:Name="SummaryTextBlock"
+                           Grid.Row="1"
+                           MaxLines="1"
+                           TextTrimming="CharacterEllipsis"
+                           TextWrapping="NoWrap"
                            Style="{ThemeResource CaptionTextBlockStyle}"
-                           TextWrapping="WrapWholeWords"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            </StackPanel>
+            </Grid>
 
-            <StackPanel Grid.Column="1"
-                        Spacing="4"
-                        HorizontalAlignment="Right">
-                <Grid ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+            <Grid Grid.Column="1"
+                  ColumnSpacing="12"
+                  VerticalAlignment="Top">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Database profile"
-                                   Style="{ThemeResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <ComboBox x:Name="ProfileComboBox"
-                                  Width="220"
-                                  DisplayMemberPath="DisplayName"
-                                  SelectionChanged="ProfileComboBox_SelectionChanged" />
-                    </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Database profile"
+                               Style="{ThemeResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <ComboBox x:Name="ProfileComboBox"
+                              Width="220"
+                              DisplayMemberPath="DisplayName"
+                              SelectionChanged="ProfileComboBox_SelectionChanged" />
+                </StackPanel>
 
-                    <StackPanel Grid.Column="1"
-                                Spacing="4">
-                        <TextBlock Text="Lookback"
-                                   Style="{ThemeResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <ComboBox x:Name="LookbackComboBox"
-                                  Width="140"
-                                  SelectionChanged="LookbackComboBox_SelectionChanged">
-                            <ComboBoxItem Content="7 days" Tag="7" />
-                            <ComboBoxItem Content="14 days" Tag="14" />
-                            <ComboBoxItem Content="30 days" Tag="30" />
-                            <ComboBoxItem Content="60 days" Tag="60" />
-                        </ComboBox>
-                    </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Spacing="4">
+                    <TextBlock Text="Lookback"
+                               Style="{ThemeResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <ComboBox x:Name="LookbackComboBox"
+                              Width="136"
+                              SelectionChanged="LookbackComboBox_SelectionChanged">
+                        <ComboBoxItem Content="7 days" Tag="7" />
+                        <ComboBoxItem Content="14 days" Tag="14" />
+                        <ComboBoxItem Content="30 days" Tag="30" />
+                        <ComboBoxItem Content="60 days" Tag="60" />
+                    </ComboBox>
+                </StackPanel>
 
-                    <Button x:Name="RefreshButton"
-                            Grid.Column="2"
-                            VerticalAlignment="Bottom"
-                            Content="Refresh"
-                            Click="RefreshButton_Click" />
+                <Button x:Name="RefreshButton"
+                        Grid.Column="2"
+                        VerticalAlignment="Bottom"
+                        Content="Refresh"
+                        Click="RefreshButton_Click" />
 
-                    <Button x:Name="RepeatedCodeSearchButton"
-                            Grid.Column="3"
-                            VerticalAlignment="Bottom"
-                            Content="Repeated Code Search"
-                            Click="RepeatedCodeSearchButton_Click" />
-                </Grid>
-            </StackPanel>
+                <Button x:Name="RepeatedCodeSearchButton"
+                        Grid.Column="3"
+                        VerticalAlignment="Bottom"
+                        Content="Repeated Code Search"
+                        Click="RepeatedCodeSearchButton_Click" />
+            </Grid>
         </Grid>
 
         <InfoBar Grid.Row="1"
@@ -93,17 +241,17 @@
         <Grid Grid.Row="2"
               ColumnSpacing="16">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="2.15*" />
+                <ColumnDefinition Width="1.45*" />
+                <ColumnDefinition Width="2.8*" />
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0"
-                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
-                    Padding="12">
+                    Padding="10">
                 <Grid RowSpacing="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -111,8 +259,22 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Text="Recently Updated PeopleCode Objects"
-                               Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock x:Name="RecentObjectsTitleTextBlock"
+                                   Text="Recently Updated PeopleCode Objects"
+                                   Style="{ThemeResource BodyStrongTextBlockStyle}" />
+
+                        <TextBlock x:Name="RecentObjectsCountTextBlock"
+                                   Grid.Column="1"
+                                   VerticalAlignment="Center"
+                                   Style="{ThemeResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Grid>
 
                     <TextBlock x:Name="RecentObjectsStatusTextBlock"
                                Grid.Row="1"
@@ -122,21 +284,40 @@
 
                     <ListView x:Name="RecentObjectsListView"
                               Grid.Row="2"
+                              Style="{StaticResource OverviewListViewStyle}"
                               IsItemClickEnabled="True"
                               ItemClick="RecentObjectsListView_ItemClick"
-                              SelectionMode="None"
                               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListView.ItemTemplate>
                             <DataTemplate>
-                                <StackPanel Padding="8"
-                                            Spacing="4">
-                                    <TextBlock Text="{Binding Title}"
-                                               Style="{ThemeResource BodyStrongTextBlockStyle}"
-                                               TextWrapping="WrapWholeWords" />
-                                    <TextBlock Text="{Binding Subtitle}"
+                                <StackPanel Spacing="4">
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Text="{Binding PrimaryLabel}"
+                                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                                   MaxLines="1"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   TextWrapping="NoWrap" />
+
+                                        <Border Grid.Column="1"
+                                                Style="{StaticResource ObjectTypeBadgeBorderStyle}">
+                                            <TextBlock Text="{Binding ObjectTypeBadge}"
+                                                       Style="{ThemeResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </Border>
+                                    </Grid>
+
+                                    <TextBlock Text="{Binding DescriptorLabel}"
+                                               MaxLines="2"
                                                TextWrapping="WrapWholeWords"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Text="{Binding LastUpdatedDisplay}"
+
+                                    <TextBlock Text="{Binding AttributionLabel}"
+                                               Style="{ThemeResource CaptionTextBlockStyle}"
                                                TextWrapping="WrapWholeWords"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
@@ -147,11 +328,11 @@
             </Border>
 
             <Border Grid.Column="1"
-                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
-                    Padding="12">
+                    Padding="10">
                 <Grid RowSpacing="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -159,8 +340,22 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Text="Recently Active Users"
-                               Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock x:Name="OpridsTitleTextBlock"
+                                   Text="Recently Active OPRIDs"
+                                   Style="{ThemeResource BodyStrongTextBlockStyle}" />
+
+                        <TextBlock x:Name="OpridsCountTextBlock"
+                                   Grid.Column="1"
+                                   VerticalAlignment="Center"
+                                   Style="{ThemeResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Grid>
 
                     <TextBlock x:Name="OpridStatusTextBlock"
                                Grid.Row="1"
@@ -170,15 +365,23 @@
 
                     <ListView x:Name="OpridsListView"
                               Grid.Row="2"
+                              Style="{StaticResource OverviewListViewStyle}"
                               SelectionChanged="OpridsListView_SelectionChanged"
                               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListView.ItemTemplate>
                             <DataTemplate>
-                                <StackPanel Padding="8"
-                                            Spacing="4">
-                                    <TextBlock Text="{Binding Title}"
-                                               Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                                    <TextBlock Text="{Binding Subtitle}"
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{Binding DisplayLabel}"
+                                               Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                               MaxLines="1"
+                                               TextTrimming="CharacterEllipsis"
+                                               TextWrapping="NoWrap" />
+                                    <TextBlock Text="{Binding OpridLabel}"
+                                               Style="{ThemeResource CaptionTextBlockStyle}"
+                                               TextWrapping="WrapWholeWords"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="{Binding ActivitySummary}"
+                                               Style="{ThemeResource CaptionTextBlockStyle}"
                                                TextWrapping="WrapWholeWords"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
@@ -189,11 +392,11 @@
             </Border>
 
             <Border Grid.Column="2"
-                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
-                    Padding="12">
+                    Padding="10">
                 <Grid RowSpacing="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -206,9 +409,24 @@
                                        Height="0" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock x:Name="DetailTitleTextBlock"
-                               Text="User Detail"
-                               Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock x:Name="DetailTitleTextBlock"
+                                   Text="Recent Updates by Selected OPRID"
+                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="NoWrap" />
+
+                        <TextBlock x:Name="DetailCountTextBlock"
+                                   Grid.Column="1"
+                                   VerticalAlignment="Center"
+                                   Style="{ThemeResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Grid>
 
                     <TextBlock x:Name="DetailStatusTextBlock"
                                Grid.Row="1"
@@ -218,22 +436,41 @@
 
                     <ListView x:Name="DetailItemsListView"
                               Grid.Row="2"
+                              Style="{StaticResource OverviewListViewStyle}"
                               IsItemClickEnabled="True"
                               ItemClick="DetailItemsListView_ItemClick"
-                              SelectionMode="None"
                               Visibility="Visible"
                               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListView.ItemTemplate>
                             <DataTemplate>
-                                <StackPanel Padding="8"
-                                            Spacing="4">
-                                    <TextBlock Text="{Binding Title}"
-                                               Style="{ThemeResource BodyStrongTextBlockStyle}"
-                                               TextWrapping="WrapWholeWords" />
-                                    <TextBlock Text="{Binding Subtitle}"
+                                <StackPanel Spacing="4">
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Text="{Binding PrimaryLabel}"
+                                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                                   MaxLines="1"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   TextWrapping="NoWrap" />
+
+                                        <Border Grid.Column="1"
+                                                Style="{StaticResource ObjectTypeBadgeBorderStyle}">
+                                            <TextBlock Text="{Binding ObjectTypeBadge}"
+                                                       Style="{ThemeResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </Border>
+                                    </Grid>
+
+                                    <TextBlock Text="{Binding DescriptorLabel}"
+                                               MaxLines="2"
                                                TextWrapping="WrapWholeWords"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock Text="{Binding LastUpdatedDisplay}"
+
+                                    <TextBlock Text="{Binding AttributionLabel}"
+                                               Style="{ThemeResource CaptionTextBlockStyle}"
                                                TextWrapping="WrapWholeWords"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
@@ -257,17 +494,18 @@
                         </Grid.RowDefinitions>
 
                         <ListView x:Name="RepeatedBlocksListView"
+                                  Style="{StaticResource OverviewListViewStyle}"
                                   SelectionChanged="RepeatedBlocksListView_SelectionChanged"
                                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <StackPanel Padding="8"
-                                                Spacing="4">
+                                    <StackPanel Spacing="4">
                                         <TextBlock Text="{Binding SnippetPreview}"
                                                    Style="{ThemeResource BodyStrongTextBlockStyle}"
                                                    TextWrapping="WrapWholeWords"
                                                    MaxLines="4" />
                                         <TextBlock Text="{Binding Summary}"
+                                                   Style="{ThemeResource CaptionTextBlockStyle}"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                 </DataTemplate>
@@ -276,21 +514,39 @@
 
                         <ListView x:Name="RepeatedOccurrencesListView"
                                   Grid.Row="1"
+                                  Style="{StaticResource OverviewListViewStyle}"
                                   IsItemClickEnabled="True"
                                   ItemClick="RepeatedOccurrencesListView_ItemClick"
-                                  SelectionMode="None"
                                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <StackPanel Padding="8"
-                                                Spacing="4">
-                                        <TextBlock Text="{Binding Location.Title}"
-                                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
-                                                   TextWrapping="WrapWholeWords" />
+                                    <StackPanel Spacing="4">
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Text="{Binding Location.PrimaryLabel}"
+                                                       Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                                       MaxLines="1"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       TextWrapping="NoWrap" />
+
+                                            <Border Grid.Column="1"
+                                                    Style="{StaticResource ObjectTypeBadgeBorderStyle}">
+                                                <TextBlock Text="{Binding Location.ObjectTypeBadge}"
+                                                           Style="{ThemeResource CaptionTextBlockStyle}"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </Border>
+                                        </Grid>
+
                                         <TextBlock Text="{Binding Subtitle}"
+                                                   MaxLines="2"
                                                    TextWrapping="WrapWholeWords"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                        <TextBlock Text="{Binding Location.LastUpdatedDisplay}"
+                                        <TextBlock Text="{Binding Location.AttributionLabel}"
+                                                   Style="{ThemeResource CaptionTextBlockStyle}"
                                                    TextWrapping="WrapWholeWords"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
@@ -301,5 +557,31 @@
                 </Grid>
             </Border>
         </Grid>
+
+        <Border Grid.Row="3"
+                Margin="0,10,0,0"
+                Padding="0,8,0,0"
+                BorderThickness="0,1,0,0"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock x:Name="FooterStatusTextBlock"
+                           VerticalAlignment="Center"
+                           Style="{ThemeResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                <ProgressRing x:Name="FooterLoadingProgressRing"
+                              Grid.Column="1"
+                              Width="16"
+                              Height="16"
+                              IsActive="False"
+                              Visibility="Collapsed"
+                              VerticalAlignment="Center" />
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

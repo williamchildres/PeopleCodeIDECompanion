@@ -74,7 +74,8 @@ public sealed class OracleSessionManager
             ProfileId = profile.ProfileId,
             DisplayName = profile.DisplayName,
             CredentialTargetId = profile.CredentialTargetId,
-            Options = existingSession.Options
+            Options = existingSession.Options,
+            OverviewSettings = PeopleCodeOverviewProfileSettings.Normalize(profile.OverviewSettings)
         };
 
         int existingIndex = Sessions.IndexOf(existingSession);

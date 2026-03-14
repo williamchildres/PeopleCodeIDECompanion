@@ -8,10 +8,11 @@
     mc:Ignorable="d">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <Grid Padding="24"
+            <Grid Padding="24"
               RowSpacing="16"
               MaxWidth="720">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -135,6 +136,58 @@
             </Grid>
 
             <StackPanel Grid.Row="3"
+                        Spacing="12">
+                <TextBlock Text="Overview Preferences"
+                           Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                <TextBlock Text="These settings apply to the PeopleCode Overview page for this saved database profile."
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="WrapWholeWords" />
+                <ToggleSwitch x:Name="IgnorePplsoftModifiedObjectsToggleSwitch"
+                              Header="Ignore PPLSOFT Modified Objects"
+                              OffContent="Off"
+                              OnContent="On" />
+                <Grid ColumnSpacing="16"
+                      RowSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBox Grid.Row="0"
+                             Grid.Column="0"
+                             x:Name="AppPackageTimeoutTextBox"
+                             Header="App Package timeout (sec)" />
+                    <TextBox Grid.Row="0"
+                             Grid.Column="1"
+                             x:Name="AppEngineTimeoutTextBox"
+                             Header="App Engine timeout (sec)" />
+                    <TextBox Grid.Row="1"
+                             Grid.Column="0"
+                             x:Name="RecordTimeoutTextBox"
+                             Header="Record timeout (sec)" />
+                    <TextBox Grid.Row="1"
+                             Grid.Column="1"
+                             x:Name="PageTimeoutTextBox"
+                             Header="Page timeout (sec)" />
+                    <TextBox Grid.Row="2"
+                             Grid.Column="0"
+                             x:Name="ComponentTimeoutTextBox"
+                             Header="Component timeout (sec)" />
+                    <TextBlock Grid.Row="2"
+                               Grid.Column="1"
+                               Text="Timeouts are stored per profile and used by the overview when loading each object type."
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="WrapWholeWords"
+                               VerticalAlignment="Center" />
+                </Grid>
+            </StackPanel>
+
+            <StackPanel Grid.Row="4"
                         Orientation="Horizontal"
                         Spacing="12">
                 <Button x:Name="TestConnectionButton"
@@ -146,13 +199,13 @@
                         IsEnabled="False" />
             </StackPanel>
 
-            <InfoBar Grid.Row="4"
+            <InfoBar Grid.Row="5"
                      x:Name="InlineErrorInfoBar"
                      IsClosable="False"
                      IsOpen="False"
                      Severity="Error" />
 
-            <Border Grid.Row="5"
+            <Border Grid.Row="6"
                     Background="{ThemeResource ControlFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"

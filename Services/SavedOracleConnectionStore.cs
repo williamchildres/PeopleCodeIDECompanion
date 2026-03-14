@@ -134,7 +134,8 @@ public sealed class SavedOracleConnectionStore
             CredentialTargetId = string.IsNullOrWhiteSpace(profile.CredentialTargetId)
                 ? CreateCredentialTargetId(profileId)
                 : profile.CredentialTargetId.Trim(),
-            LastConnectedAt = profile.LastConnectedAt
+            LastConnectedAt = profile.LastConnectedAt,
+            OverviewSettings = PeopleCodeOverviewProfileSettings.Normalize(profile.OverviewSettings)
         };
     }
 
@@ -163,7 +164,13 @@ public sealed class SavedOracleConnectionStore
             SavedOracleConnectionProfile normalized = normalizedProfiles[index];
             if (!string.Equals(original.ProfileId, normalized.ProfileId, StringComparison.Ordinal) ||
                 !string.Equals(original.Port, normalized.Port, StringComparison.Ordinal) ||
-                !string.Equals(original.CredentialTargetId, normalized.CredentialTargetId, StringComparison.Ordinal))
+                !string.Equals(original.CredentialTargetId, normalized.CredentialTargetId, StringComparison.Ordinal) ||
+                original.OverviewSettings?.IgnorePplsoftModifiedObjects != normalized.OverviewSettings.IgnorePplsoftModifiedObjects ||
+                (original.OverviewSettings?.AppPackageTimeoutSeconds ?? 0) != normalized.OverviewSettings.AppPackageTimeoutSeconds ||
+                (original.OverviewSettings?.AppEngineTimeoutSeconds ?? 0) != normalized.OverviewSettings.AppEngineTimeoutSeconds ||
+                (original.OverviewSettings?.RecordTimeoutSeconds ?? 0) != normalized.OverviewSettings.RecordTimeoutSeconds ||
+                (original.OverviewSettings?.PageTimeoutSeconds ?? 0) != normalized.OverviewSettings.PageTimeoutSeconds ||
+                (original.OverviewSettings?.ComponentTimeoutSeconds ?? 0) != normalized.OverviewSettings.ComponentTimeoutSeconds)
             {
                 return true;
             }

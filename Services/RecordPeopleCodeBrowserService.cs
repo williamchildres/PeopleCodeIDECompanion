@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +11,8 @@ namespace PeopleCodeIDECompanion.Services;
 
 public sealed class RecordPeopleCodeBrowserService
 {
+    private static readonly TimeSpan SlowLoadThreshold = TimeSpan.FromSeconds(5);
+
     public async Task<RecordPeopleCodeBrowseResult> GetItemsAsync(
         OracleConnectionOptions options,
         CancellationToken cancellationToken = default)
@@ -54,6 +57,7 @@ ORDER BY
 
         try
         {
+            Stopwatch stopwatch = Stopwatch.StartNew();
             List<RecordPeopleCodeItem> items = [];
 
             await using OracleConnection connection = new(OracleConnectionStringFactory.Create(options));
@@ -76,7 +80,11 @@ ORDER BY
 
             return new RecordPeopleCodeBrowseResult
             {
-                Items = items
+                Items = items,
+                LoadDuration = stopwatch.Elapsed,
+                WarningMessage = stopwatch.Elapsed >= SlowLoadThreshold
+                    ? $"Record metadata load took {stopwatch.Elapsed.TotalSeconds:F1}s for {items.Count} item(s)."
+                    : string.Empty
             };
         }
         catch (Exception exception)

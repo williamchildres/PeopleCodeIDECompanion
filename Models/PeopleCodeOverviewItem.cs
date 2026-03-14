@@ -18,23 +18,45 @@ public sealed class PeopleCodeOverviewItem
 
     public object? SourceKey { get; init; }
 
-    public string Title =>
+    public string PrimaryLabel =>
         string.IsNullOrWhiteSpace(ObjectName)
-            ? $"({ObjectType})"
-            : $"{ObjectName} ({ObjectType})";
+            ? "(Unnamed object)"
+            : ObjectName;
 
-    public string Subtitle => string.IsNullOrWhiteSpace(Descriptor) ? "No additional descriptor" : Descriptor;
+    public string ObjectTypeBadge =>
+        string.IsNullOrWhiteSpace(ObjectType)
+            ? "PeopleCode"
+            : ObjectType;
 
-    public string LastUpdatedDisplay =>
+    public string DescriptorLabel =>
+        string.IsNullOrWhiteSpace(Descriptor)
+            ? "No source descriptor"
+            : Descriptor;
+
+    public string AttributionLabel =>
         $"{(LastUpdatedDateTime?.ToString("g") ?? "Unknown time")} | {GetLastUpdatedIdentityLabel()}";
+
+    public string Title => PrimaryLabel;
+
+    public string Subtitle => DescriptorLabel;
+
+    public string LastUpdatedDisplay => AttributionLabel;
 
     private string GetLastUpdatedIdentityLabel()
     {
+        if (!string.IsNullOrWhiteSpace(LastUpdatedBy) &&
+            !string.IsNullOrWhiteSpace(LastUpdatedByDisplay) &&
+            !LastUpdatedBy.Equals(LastUpdatedByDisplay, StringComparison.OrdinalIgnoreCase) &&
+            !LastUpdatedByDisplay.Contains(LastUpdatedBy, StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{LastUpdatedBy} ({LastUpdatedByDisplay})";
+        }
+
         if (!string.IsNullOrWhiteSpace(LastUpdatedByDisplay))
         {
             return LastUpdatedByDisplay;
         }
 
-        return string.IsNullOrWhiteSpace(LastUpdatedBy) ? "Unknown user" : LastUpdatedBy;
+        return string.IsNullOrWhiteSpace(LastUpdatedBy) ? "Unknown OPRID" : LastUpdatedBy;
     }
 }

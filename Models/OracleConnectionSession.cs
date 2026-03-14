@@ -9,4 +9,6 @@ public sealed class OracleConnectionSession
     public string CredentialTargetId { get; set; } = string.Empty;
 
     public OracleConnectionOptions Options { get; set; } = new();
+
+    public PeopleCodeOverviewProfileSettings OverviewSettings { get; set; } = new();
 }

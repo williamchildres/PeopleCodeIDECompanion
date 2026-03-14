@@ -25,7 +25,6 @@ public sealed partial class MainShellView : UserControl
     private readonly OracleConnectionTester _connectionTester = new();
     private readonly PeopleCodeInterfaceView _peopleCodeInterfaceView;
     private readonly PeopleCodeOverviewView _peopleCodeOverviewView;
-    private readonly OracleConnectionView _oracleConnectionView;
     private readonly ReferenceExplorerView _referenceExplorerView = new();
     private INotifyCollectionChanged? _currentStatusCollection;
     private readonly List<PeopleCodeObjectStatusItem> _trackedStatuses = [];
@@ -36,10 +35,6 @@ public sealed partial class MainShellView : UserControl
 
         _peopleCodeInterfaceView = new PeopleCodeInterfaceView(_sessionManager);
         _peopleCodeOverviewView = new PeopleCodeOverviewView(_sessionManager);
-        _oracleConnectionView = new OracleConnectionView();
-        _oracleConnectionView.BrowserRequested += OracleConnectionView_BrowserRequested;
-        _oracleConnectionView.ProfileSaved += OracleConnectionView_ProfileSaved;
-        _oracleConnectionView.ProfileDeleted += OracleConnectionView_ProfileDeleted;
         _peopleCodeInterfaceView.ActiveWorkspaceChanged += PeopleCodeInterfaceView_ActiveWorkspaceChanged;
         _peopleCodeOverviewView.NavigateToPeopleCodeObjectRequested += PeopleCodeOverviewView_NavigateToPeopleCodeObjectRequested;
         KeyDown += MainShellView_KeyDown;
@@ -345,7 +340,8 @@ public sealed partial class MainShellView : UserControl
                 ProfileId = profile.ProfileId,
                 DisplayName = profile.DisplayName,
                 CredentialTargetId = profile.CredentialTargetId,
-                Options = options
+                Options = options,
+                OverviewSettings = PeopleCodeOverviewProfileSettings.Normalize(profile.OverviewSettings)
             };
 
             _sessionManager.AddOrUpdate(session, selectSession: successCount == 0);
@@ -388,13 +384,14 @@ public sealed partial class MainShellView : UserControl
 
     private async System.Threading.Tasks.Task ShowSettingsDialogAsync()
     {
+        OracleConnectionView oracleConnectionView = new();
         ContentDialog dialog = new()
         {
             Title = "Settings",
             CloseButtonText = "Close",
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = XamlRoot,
-            Content = _oracleConnectionView
+            Content = oracleConnectionView
         };
 
         void CloseSettingsOnBrowserRequest(object? sender, OracleConnectionSession session)
@@ -402,14 +399,21 @@ public sealed partial class MainShellView : UserControl
             dialog.Hide();
         }
 
-        _oracleConnectionView.BrowserRequested += CloseSettingsOnBrowserRequest;
+        oracleConnectionView.BrowserRequested += OracleConnectionView_BrowserRequested;
+        oracleConnectionView.ProfileSaved += OracleConnectionView_ProfileSaved;
+        oracleConnectionView.ProfileDeleted += OracleConnectionView_ProfileDeleted;
+        oracleConnectionView.BrowserRequested += CloseSettingsOnBrowserRequest;
         try
         {
             await dialog.ShowAsync();
         }
         finally
         {
-            _oracleConnectionView.BrowserRequested -= CloseSettingsOnBrowserRequest;
+            oracleConnectionView.BrowserRequested -= CloseSettingsOnBrowserRequest;
+            oracleConnectionView.BrowserRequested -= OracleConnectionView_BrowserRequested;
+            oracleConnectionView.ProfileSaved -= OracleConnectionView_ProfileSaved;
+            oracleConnectionView.ProfileDeleted -= OracleConnectionView_ProfileDeleted;
+            dialog.Content = null;
         }
     }
 
@@ -517,9 +521,6 @@ public sealed partial class MainShellView : UserControl
             status.PropertyChanged -= StatusItem_PropertyChanged;
         }
 
-        _oracleConnectionView.BrowserRequested -= OracleConnectionView_BrowserRequested;
-        _oracleConnectionView.ProfileSaved -= OracleConnectionView_ProfileSaved;
-        _oracleConnectionView.ProfileDeleted -= OracleConnectionView_ProfileDeleted;
         _peopleCodeInterfaceView.ActiveWorkspaceChanged -= PeopleCodeInterfaceView_ActiveWorkspaceChanged;
         _peopleCodeOverviewView.NavigateToPeopleCodeObjectRequested -= PeopleCodeOverviewView_NavigateToPeopleCodeObjectRequested;
         Unloaded -= MainShellView_Unloaded;

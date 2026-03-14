@@ -21,4 +21,6 @@ public sealed class SavedOracleConnectionProfile
     public string CredentialTargetId { get; set; } = string.Empty;
 
     public DateTimeOffset? LastConnectedAt { get; set; }
+
+    public PeopleCodeOverviewProfileSettings OverviewSettings { get; set; } = new();
 }

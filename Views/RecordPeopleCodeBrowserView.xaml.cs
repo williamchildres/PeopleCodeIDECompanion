@@ -313,6 +313,11 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
         ApplyItemFilter();
         SelectVisibleItem(null);
 
+        SetGlobalSearchStatus(
+            $"Loaded {_allItems.Count} Record item(s) in {result.LoadDuration.TotalSeconds:F1}s."
+            + (string.IsNullOrWhiteSpace(result.WarningMessage) ? string.Empty : $" {result.WarningMessage}"),
+            true);
+
         if (_allItems.Count == 0)
         {
             MetadataHeaderView.SetKeysText(

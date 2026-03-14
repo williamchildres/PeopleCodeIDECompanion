@@ -12,8 +12,24 @@ public sealed class PeopleCodeAuthorActivityItem
 
     public int UpdateCount { get; init; }
 
-    public string Title => string.IsNullOrWhiteSpace(DisplayName) ? Oprid : DisplayName;
+    public string DisplayLabel => string.IsNullOrWhiteSpace(DisplayName) ? Oprid : DisplayName;
 
-    public string Subtitle =>
+    public string OpridLabel =>
+        string.IsNullOrWhiteSpace(Oprid)
+            ? "OPRID unavailable"
+            : $"OPRID: {Oprid}";
+
+    public string ActivitySummary =>
         $"{(MostRecentUpdateDateTime?.ToString("g") ?? "Unknown time")} | {UpdateCount} update(s)";
+
+    public string HeaderLabel =>
+        string.IsNullOrWhiteSpace(DisplayName) || DisplayName.Equals(Oprid, StringComparison.OrdinalIgnoreCase)
+            ? Oprid
+            : DisplayName.Contains(Oprid, StringComparison.OrdinalIgnoreCase)
+                ? DisplayName
+                : $"{DisplayName} ({Oprid})";
+
+    public string Title => DisplayLabel;
+
+    public string Subtitle => ActivitySummary;
 }

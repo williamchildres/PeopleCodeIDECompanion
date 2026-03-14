@@ -113,7 +113,8 @@ public sealed partial class OracleConnectionView : UserControl
                 Username = UsernameTextBox.Text.Trim(),
                 AutoLoginEnabled = AutoLoginToggleSwitch.IsOn,
                 CredentialTargetId = credentialTargetId,
-                LastConnectedAt = existingProfile?.LastConnectedAt
+                LastConnectedAt = existingProfile?.LastConnectedAt,
+                OverviewSettings = BuildOverviewSettings()
             };
 
             await _savedConnectionStore.SaveAsync(profile);
@@ -150,6 +151,7 @@ public sealed partial class OracleConnectionView : UserControl
             ServiceNameTextBox.Text = SelectedSavedConnection.ServiceName;
             UsernameTextBox.Text = SelectedSavedConnection.Username;
             AutoLoginToggleSwitch.IsOn = SelectedSavedConnection.AutoLoginEnabled;
+            ApplyOverviewSettings(SelectedSavedConnection.OverviewSettings);
             PasswordBoxControl.Password = await _secureCredentialStore.LoadPasswordAsync(SelectedSavedConnection.CredentialTargetId)
                 ?? string.Empty;
 
@@ -251,7 +253,10 @@ public sealed partial class OracleConnectionView : UserControl
                 ? $"{options.Username}@{options.Host}"
                 : DisplayNameTextBox.Text.Trim(),
             CredentialTargetId = currentProfile?.CredentialTargetId ?? string.Empty,
-            Options = options
+            Options = options,
+            OverviewSettings = currentProfile is null
+                ? BuildOverviewSettings()
+                : PeopleCodeOverviewProfileSettings.Normalize(currentProfile.OverviewSettings)
         };
     }
 
@@ -311,7 +316,8 @@ public sealed partial class OracleConnectionView : UserControl
             ProfileId = profile.ProfileId,
             DisplayName = profile.DisplayName,
             CredentialTargetId = profile.CredentialTargetId,
-            Options = _lastSuccessfulSession.Options
+            Options = _lastSuccessfulSession.Options,
+            OverviewSettings = PeopleCodeOverviewProfileSettings.Normalize(profile.OverviewSettings)
         };
     }
 
@@ -342,9 +348,41 @@ public sealed partial class OracleConnectionView : UserControl
         UsernameTextBox.Text = string.Empty;
         PasswordBoxControl.Password = string.Empty;
         AutoLoginToggleSwitch.IsOn = false;
+        ApplyOverviewSettings(new PeopleCodeOverviewProfileSettings());
         ResetSuccessfulConnection();
         StatusSummaryTextBlock.Text = "Ready";
         StatusDetailsTextBox.Text = "Enter connection details, then select Test Connection.";
+    }
+
+    private PeopleCodeOverviewProfileSettings BuildOverviewSettings()
+    {
+        return PeopleCodeOverviewProfileSettings.Normalize(new PeopleCodeOverviewProfileSettings
+        {
+            IgnorePplsoftModifiedObjects = IgnorePplsoftModifiedObjectsToggleSwitch.IsOn,
+            AppPackageTimeoutSeconds = ParseTimeout(AppPackageTimeoutTextBox.Text),
+            AppEngineTimeoutSeconds = ParseTimeout(AppEngineTimeoutTextBox.Text),
+            RecordTimeoutSeconds = ParseTimeout(RecordTimeoutTextBox.Text),
+            PageTimeoutSeconds = ParseTimeout(PageTimeoutTextBox.Text),
+            ComponentTimeoutSeconds = ParseTimeout(ComponentTimeoutTextBox.Text)
+        });
+    }
+
+    private void ApplyOverviewSettings(PeopleCodeOverviewProfileSettings? settings)
+    {
+        PeopleCodeOverviewProfileSettings normalized = PeopleCodeOverviewProfileSettings.Normalize(settings);
+        IgnorePplsoftModifiedObjectsToggleSwitch.IsOn = normalized.IgnorePplsoftModifiedObjects;
+        AppPackageTimeoutTextBox.Text = normalized.AppPackageTimeoutSeconds.ToString();
+        AppEngineTimeoutTextBox.Text = normalized.AppEngineTimeoutSeconds.ToString();
+        RecordTimeoutTextBox.Text = normalized.RecordTimeoutSeconds.ToString();
+        PageTimeoutTextBox.Text = normalized.PageTimeoutSeconds.ToString();
+        ComponentTimeoutTextBox.Text = normalized.ComponentTimeoutSeconds.ToString();
+    }
+
+    private static int ParseTimeout(string value)
+    {
+        return int.TryParse(value?.Trim(), out int seconds)
+            ? seconds
+            : PeopleCodeOverviewProfileSettings.DefaultObjectTypeTimeoutSeconds;
     }
 
     private static bool IsNewPlaceholder(SavedOracleConnectionProfile profile)
