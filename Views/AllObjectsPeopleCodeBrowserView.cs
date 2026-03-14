@@ -38,9 +38,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     private readonly TextBlock _groupsEmptyStateTextBlock;
     private readonly ListView _resultsListView;
     private readonly TextBlock _resultsEmptyStateTextBlock;
-    private readonly TextBlock _selectedItemTitleTextBlock;
-    private readonly TextBlock _selectedItemSubtitleTextBlock;
-    private readonly TextBlock _metadataSummaryTextBlock;
+    private readonly PeopleCodeMetadataHeaderView _metadataHeaderView;
     private readonly Button _openDetachedSourceButton;
     private readonly Button _compareSourceButton;
     private readonly Button _previousSourceMatchButton;
@@ -63,6 +61,10 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         DetachedSourceWindowManager detachedSourceWindowManager,
         PeopleCodeCompareWindowManager compareWindowManager)
     {
+        HorizontalAlignment = HorizontalAlignment.Stretch;
+        VerticalAlignment = VerticalAlignment.Stretch;
+        MinWidth = 1260;
+        MinHeight = 720;
         _detachedSourceWindowManager = detachedSourceWindowManager;
         _compareWindowManager = compareWindowManager;
         _searchTextBox = new TextBox
@@ -120,22 +122,6 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
 
         _resultsEmptyStateTextBlock = BuildSecondaryTextBlock();
 
-        _selectedItemTitleTextBlock = new TextBlock
-        {
-            TextWrapping = TextWrapping.WrapWholeWords
-        };
-        _selectedItemTitleTextBlock.Style = Application.Current.Resources["BodyStrongTextBlockStyle"] as Style;
-
-        _selectedItemSubtitleTextBlock = new TextBlock
-        {
-            TextWrapping = TextWrapping.WrapWholeWords
-        };
-
-        _metadataSummaryTextBlock = new TextBlock
-        {
-            TextWrapping = TextWrapping.WrapWholeWords
-        };
-
         _openDetachedSourceButton = new Button
         {
             Content = "Open",
@@ -151,6 +137,10 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         };
         ToolTipService.SetToolTip(_compareSourceButton, "Compare this source with another active profile");
         _compareSourceButton.Click += CompareSourceButton_Click;
+
+        _metadataHeaderView = new PeopleCodeMetadataHeaderView();
+        _metadataHeaderView.OpenButton.Click += OpenDetachedSourceButton_Click;
+        _metadataHeaderView.CompareButton.Click += CompareSourceButton_Click;
 
         _previousSourceMatchButton = new Button
         {
@@ -204,45 +194,38 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     {
         Grid root = new()
         {
-            RowSpacing = 12,
+            RowSpacing = 10,
             ColumnSpacing = 16
         };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-        Border searchBorder = BuildPlainBorder(BuildSearchPanel());
+        Border searchBorder = BuildWorkspaceSurface(BuildSearchPanel(), new Thickness(16, 14, 16, 14));
         root.Children.Add(searchBorder);
 
         Grid.SetRow(_searchErrorInfoBar, 1);
         root.Children.Add(_searchErrorInfoBar);
 
         Grid contentGrid = new() { ColumnSpacing = 16 };
-        contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });
-        contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(340) });
-        contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2.4, GridUnitType.Star), MinWidth = 220 });
+        contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3.1, GridUnitType.Star), MinWidth = 280 });
+        contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(6.5, GridUnitType.Star), MinWidth = 620 });
         Grid.SetRow(contentGrid, 2);
         root.Children.Add(contentGrid);
 
-        contentGrid.Children.Add(BuildSectionBorder("Object Types", _groupsListView, _groupsEmptyStateTextBlock));
-        Border resultsBorder = BuildSectionBorder("Matches", _resultsListView, _resultsEmptyStateTextBlock);
+        contentGrid.Children.Add(BuildNavigationPane("Object Types", "Refine the search scope", _groupsListView, _groupsEmptyStateTextBlock));
+        Border resultsBorder = BuildNavigationPane("Matches", "Browse grouped results", _resultsListView, _resultsEmptyStateTextBlock);
         Grid.SetColumn(resultsBorder, 1);
         contentGrid.Children.Add(resultsBorder);
 
-        Grid detailGrid = new() { RowSpacing = 16 };
+        Grid detailGrid = new() { RowSpacing = 10 };
         detailGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         detailGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         Grid.SetColumn(detailGrid, 2);
         contentGrid.Children.Add(detailGrid);
 
-        StackPanel metadataPanel = new() { Spacing = 6 };
-        TextBlock metadataTitle = new() { Text = "Metadata" };
-        metadataTitle.Style = Application.Current.Resources["SubtitleTextBlockStyle"] as Style;
-        metadataPanel.Children.Add(metadataTitle);
-        metadataPanel.Children.Add(_selectedItemTitleTextBlock);
-        metadataPanel.Children.Add(_selectedItemSubtitleTextBlock);
-        metadataPanel.Children.Add(_metadataSummaryTextBlock);
-        detailGrid.Children.Add(BuildPlainBorder(metadataPanel));
+        detailGrid.Children.Add(BuildMetadataSurface());
 
         Grid sourceGrid = new() { RowSpacing = 8 };
         sourceGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -253,31 +236,32 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         TextBlock sourceTitle = new() { Text = "PeopleCode Source" };
         sourceTitle.Style = Application.Current.Resources["SubtitleTextBlockStyle"] as Style;
         sourceHeaderGrid.Children.Add(sourceTitle);
-        Grid.SetColumn(_openDetachedSourceButton, 1);
-        sourceHeaderGrid.Children.Add(_openDetachedSourceButton);
-        Grid.SetColumn(_compareSourceButton, 2);
-        sourceHeaderGrid.Children.Add(_compareSourceButton);
-        Grid.SetColumn(_sourceMatchStatusTextBlock, 3);
+        Grid.SetColumn(_sourceMatchStatusTextBlock, 1);
         sourceHeaderGrid.Children.Add(_sourceMatchStatusTextBlock);
-        Grid.SetColumn(_previousSourceMatchButton, 4);
+        Grid.SetColumn(_previousSourceMatchButton, 2);
         sourceHeaderGrid.Children.Add(_previousSourceMatchButton);
-        Grid.SetColumn(_nextSourceMatchButton, 5);
+        Grid.SetColumn(_nextSourceMatchButton, 3);
         sourceHeaderGrid.Children.Add(_nextSourceMatchButton);
         sourceGrid.Children.Add(sourceHeaderGrid);
 
         Grid.SetRow(_sourceScrollViewer, 1);
         sourceGrid.Children.Add(_sourceScrollViewer);
 
-        Border sourceBorder = BuildPlainBorder(sourceGrid);
+        Border sourceBorder = BuildWorkspaceSurface(sourceGrid);
         Grid.SetRow(sourceBorder, 1);
         detailGrid.Children.Add(sourceBorder);
 
         return root;
+    }
+
+    private Border BuildMetadataSurface()
+    {
+        _metadataHeaderView.OpenButton.IsEnabled = _openDetachedSourceButton.IsEnabled;
+        _metadataHeaderView.CompareButton.IsEnabled = _compareSourceButton.IsEnabled;
+        return BuildWorkspaceSurface(_metadataHeaderView, new Thickness(12, 10, 12, 10));
     }
 
     private UIElement BuildSearchPanel()
@@ -290,23 +274,24 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        TextBlock title = new() { Text = "All Objects Search" };
-        title.Style = Application.Current.Resources["SubtitleTextBlockStyle"] as Style;
+        TextBlock title = new() { Text = "Global Search" };
+        title.Style = Application.Current.Resources["CaptionTextBlockStyle"] as Style;
         Grid.SetColumnSpan(title, 3);
         grid.Children.Add(title);
 
         Grid.SetRow(_searchTextBox, 1);
         grid.Children.Add(_searchTextBox);
 
-        Grid.SetRow(_searchButton, 1);
+        Grid.SetRow(_searchButton, 0);
         Grid.SetColumn(_searchButton, 1);
         grid.Children.Add(_searchButton);
 
-        Grid.SetRow(_clearButton, 1);
+        Grid.SetRow(_clearButton, 0);
         Grid.SetColumn(_clearButton, 2);
         grid.Children.Add(_clearButton);
 
@@ -321,45 +306,64 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         return grid;
     }
 
-    private static Border BuildSectionBorder(string title, FrameworkElement content, TextBlock emptyStateTextBlock)
+    private static Border BuildNavigationPane(string title, string subtitle, FrameworkElement content, TextBlock emptyStateTextBlock)
     {
         Grid sectionGrid = new() { RowSpacing = 8 };
+        sectionGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         sectionGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         sectionGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         sectionGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         TextBlock titleBlock = new() { Text = title };
-        titleBlock.Style = Application.Current.Resources["SubtitleTextBlockStyle"] as Style;
+        titleBlock.Style = Application.Current.Resources["BodyStrongTextBlockStyle"] as Style;
         sectionGrid.Children.Add(titleBlock);
 
-        Grid.SetRow(content, 1);
+        TextBlock subtitleBlock = BuildSecondaryTextBlock(subtitle);
+        Grid.SetRow(subtitleBlock, 1);
+        sectionGrid.Children.Add(subtitleBlock);
+
+        Grid.SetRow(content, 2);
         sectionGrid.Children.Add(content);
 
-        Grid.SetRow(emptyStateTextBlock, 2);
+        Grid.SetRow(emptyStateTextBlock, 3);
         sectionGrid.Children.Add(emptyStateTextBlock);
 
-        Border border = BuildPlainBorder(sectionGrid);
+        Border border = BuildNavigationSurface(sectionGrid);
         border.MinHeight = 420;
         return border;
     }
 
-    private static Border BuildPlainBorder(UIElement child)
+    private static Border BuildNavigationSurface(UIElement child)
+    {
+        return new Border
+        {
+            Background = Application.Current.Resources["LayerFillColorDefaultBrush"] as Brush,
+            BorderBrush = Application.Current.Resources["CardStrokeColorDefaultBrush"] as Brush,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(12),
+            Child = child
+        };
+    }
+
+    private static Border BuildWorkspaceSurface(UIElement child, Thickness? padding = null)
     {
         return new Border
         {
             Background = Application.Current.Resources["ControlFillColorSecondaryBrush"] as Brush,
             BorderBrush = Application.Current.Resources["CardStrokeColorDefaultBrush"] as Brush,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(12),
+            CornerRadius = new CornerRadius(12),
+            Padding = padding ?? new Thickness(12),
             Child = child
         };
     }
 
-    private static TextBlock BuildSecondaryTextBlock()
+    private static TextBlock BuildSecondaryTextBlock(string text = "")
     {
         return new TextBlock
         {
+            Text = text,
             Foreground = Application.Current.Resources["TextFillColorSecondaryBrush"] as Brush,
             TextWrapping = TextWrapping.WrapWholeWords
         };
@@ -694,17 +698,21 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     {
         if (item is null)
         {
-            _selectedItemTitleTextBlock.Text = string.Empty;
-            _selectedItemSubtitleTextBlock.Text = string.Empty;
-            _metadataSummaryTextBlock.Text = string.IsNullOrWhiteSpace(_activeSearchText)
-                ? EmptyStateMessage
-                : "Select a matching result to view metadata and PeopleCode source.";
+            _metadataHeaderView.SetTitle(string.Empty);
+            _metadataHeaderView.SetTypeText(string.Empty);
+            _metadataHeaderView.SetUpdatedText(string.Empty);
+            _metadataHeaderView.SetKeysText(
+                string.IsNullOrWhiteSpace(_activeSearchText)
+                    ? EmptyStateMessage
+                    : "Select a matching result to view metadata and PeopleCode source.",
+                "Details");
             return;
         }
 
-        _selectedItemTitleTextBlock.Text = item.MetadataTitle;
-        _selectedItemSubtitleTextBlock.Text = $"{item.ObjectType} | {item.MetadataSubtitle}";
-        _metadataSummaryTextBlock.Text = item.MetadataSummary;
+        _metadataHeaderView.SetTitle(item.MetadataTitle);
+        _metadataHeaderView.SetTypeText(BuildMetadataTypeText(item));
+        _metadataHeaderView.SetUpdatedText(BuildLastUpdatedText(item.LastUpdatedBy, item.LastUpdatedDateTime));
+        _metadataHeaderView.SetKeysText(BuildMetadataDetailsText(item), "Details");
     }
 
     private bool CanOpenDetachedSource()
@@ -715,6 +723,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     private void UpdateDetachedSourceChrome()
     {
         _openDetachedSourceButton.IsEnabled = CanOpenDetachedSource();
+        _metadataHeaderView.OpenButton.IsEnabled = _openDetachedSourceButton.IsEnabled;
         UpdateCompareChrome();
     }
 
@@ -723,10 +732,10 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         return DetachedPeopleCodeSourceContextFactory.Create(
             _session,
             _selectedItem?.ObjectType ?? "PeopleCode",
-            _selectedItemTitleTextBlock.Text,
-            _selectedItemSubtitleTextBlock.Text,
-            _metadataSummaryTextBlock.Text,
-            string.Empty,
+            _metadataHeaderView.TitleText,
+            _metadataHeaderView.TypeValueText,
+            _metadataHeaderView.KeysValueText,
+            _metadataHeaderView.UpdatedValueText,
             _currentSourceText,
             _activeSearchText,
             useSyntaxHighlighting: true);
@@ -740,6 +749,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     private void UpdateCompareChrome()
     {
         _compareSourceButton.IsEnabled = CanCompareSource();
+        _metadataHeaderView.CompareButton.IsEnabled = _compareSourceButton.IsEnabled;
     }
 
     private PeopleCodeCompareRequest? BuildCompareRequest(OracleConnectionSession comparisonProfile)
@@ -761,12 +771,55 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
                     ObjectType = _selectedItem.ObjectType,
                     SourceKey = _selectedItem.SourceKey
                 },
-                ObjectTitle = _selectedItemTitleTextBlock.Text,
-                ObjectSubtitle = _selectedItemSubtitleTextBlock.Text,
-                MetadataSummary = _metadataSummaryTextBlock.Text,
+                ObjectTitle = _metadataHeaderView.TitleText,
+                ObjectSubtitle = _metadataHeaderView.TypeValueText,
+                MetadataSummary = _metadataHeaderView.KeysValueText,
                 UseSyntaxHighlighting = true
             }
         };
+    }
+
+    private static string BuildMetadataTypeText(AllObjectsSearchItem item)
+    {
+        return string.IsNullOrWhiteSpace(item.MetadataSubtitle)
+            ? item.ObjectType
+            : $"{item.ObjectType} · {item.MetadataSubtitle}";
+    }
+
+    private static string BuildMetadataDetailsText(AllObjectsSearchItem item)
+    {
+        return string.Join(
+            ", ",
+            item.MetadataSummary
+                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Where(part =>
+                    !part.StartsWith("LASTUPDOPRID=", StringComparison.OrdinalIgnoreCase) &&
+                    !part.StartsWith("LASTUPDDTTM=", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static string BuildLastUpdatedText(string displayLabel, DateTime? lastUpdatedDateTime)
+    {
+        if (string.IsNullOrWhiteSpace(displayLabel) && lastUpdatedDateTime is null)
+        {
+            return string.Empty;
+        }
+
+        string updatedBy = string.IsNullOrWhiteSpace(displayLabel) ? "(blank)" : displayLabel;
+        string updatedOn = FormatLastUpdatedDateTime(lastUpdatedDateTime);
+        return $"{updatedBy} · {updatedOn}";
+    }
+
+    private static string FormatLastUpdatedDateTime(DateTime? lastUpdatedDateTime)
+    {
+        if (lastUpdatedDateTime is null)
+        {
+            return "(blank)";
+        }
+
+        DateTime displayDateTime = lastUpdatedDateTime.Value.Kind == DateTimeKind.Utc
+            ? lastUpdatedDateTime.Value.ToLocalTime()
+            : lastUpdatedDateTime.Value;
+        return displayDateTime.ToString("M/d/yyyy h:mm tt");
     }
 
     private void SetSourceViewerText(string text)

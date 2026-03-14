@@ -48,6 +48,8 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
         _detachedSourceWindowManager = detachedSourceWindowManager;
         _compareWindowManager = compareWindowManager;
         InitializeComponent();
+        MetadataHeaderView.OpenButton.Click += OpenDetachedSourceButton_Click;
+        MetadataHeaderView.CompareButton.Click += CompareSourceButton_Click;
         RecordsListView.ItemsSource = _filteredRecords;
         ItemsListView.ItemsSource = _filteredItems;
         SourceRichTextBlock.Blocks.Add(new Paragraph());
@@ -59,7 +61,6 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
     public void SetSession(OracleConnectionSession session)
     {
         _session = session;
-        RefreshButton.IsEnabled = true;
         GlobalSourceSearchButton.IsEnabled = true;
         _statusStore?.SetSessionAvailable(AllObjectsPeopleCodeBrowserService.RecordMode, hasSession: true);
         _ = LoadItemsAsync();
@@ -159,7 +160,7 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
         }
 
         int sourceLoadVersion = ++_sourceLoadVersion;
-        MetadataSummaryTextBlock.Text = "Loading Record PeopleCode source...";
+        MetadataHeaderView.SetKeysText("Loading Record PeopleCode source...", "Details");
 
         RecordPeopleCodeSourceResult result = await _browserService.GetSourceAsync(_session.Options, item);
         if (sourceLoadVersion != _sourceLoadVersion || !ReferenceEquals(_selectedItem, item))
@@ -171,14 +172,14 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
         {
             InlineErrorInfoBar.Message = result.ErrorMessage;
             InlineErrorInfoBar.IsOpen = true;
-            MetadataSummaryTextBlock.Text = "Record PeopleCode source could not be loaded.";
+            MetadataHeaderView.SetKeysText("Record PeopleCode source could not be loaded.", "Details");
             SetSourceViewerText(string.Empty);
             return;
         }
 
-        MetadataSummaryTextBlock.Text = string.IsNullOrWhiteSpace(result.SourceText)
+        MetadataHeaderView.SetKeysText(string.IsNullOrWhiteSpace(result.SourceText)
             ? BuildMetadataText(item) + " No source rows were returned for the selected key."
-            : BuildMetadataText(item);
+            : BuildMetadataText(item));
 
         _hasLoadedSelectedSource = true;
         SetSourceViewerText(result.SourceText);
@@ -287,7 +288,7 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
         SetMetadata(null);
         SetSourceViewerText(string.Empty);
         UpdateGlobalSearchChrome();
-        MetadataSummaryTextBlock.Text = "Loading Record PeopleCode metadata...";
+        MetadataHeaderView.SetKeysText("Loading Record PeopleCode metadata...", "Details");
 
         RecordPeopleCodeBrowseResult result = await _browserService.GetItemsAsync(session.Options);
         if (loadItemsVersion != _loadItemsVersion ||
@@ -300,7 +301,7 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
             _statusStore?.MarkError(AllObjectsPeopleCodeBrowserService.RecordMode);
-            MetadataSummaryTextBlock.Text = "Record PeopleCode metadata could not be loaded.";
+            MetadataHeaderView.SetKeysText("Record PeopleCode metadata could not be loaded.", "Details");
             InlineErrorInfoBar.Message = result.ErrorMessage;
             InlineErrorInfoBar.IsOpen = true;
             return;
@@ -314,8 +315,9 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
 
         if (_allItems.Count == 0)
         {
-            MetadataSummaryTextBlock.Text =
-                "No Record PeopleCode rows were returned for the current read-only subset. This browser currently reads field-event PeopleCode from PSPCMTXT/PSPCMPROG where OBJECTID1=1, OBJECTID2=2, and OBJECTID3=12.";
+            MetadataHeaderView.SetKeysText(
+                "No Record PeopleCode rows were returned for the current read-only subset. This browser currently reads field-event PeopleCode from PSPCMTXT/PSPCMPROG where OBJECTID1=1, OBJECTID2=2, and OBJECTID3=12.",
+                "Details");
         }
 
         _statusStore?.MarkLoaded(AllObjectsPeopleCodeBrowserService.RecordMode);
@@ -577,18 +579,19 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
 
         if (item is null)
         {
-            MetadataLastUpdatedTextBlock.Text = string.Empty;
-            SelectedItemTitleTextBlock.Text = string.Empty;
-            SelectedItemSubtitleTextBlock.Text = string.Empty;
-            MetadataSummaryTextBlock.Text =
-                "Select a Record PeopleCode item to view its source. Current Record mode browses field-event PeopleCode from PSPCMTXT/PSPCMPROG where OBJECTID1=1, OBJECTID2=2, and OBJECTID3=12.";
+            MetadataHeaderView.SetTitle(string.Empty);
+            MetadataHeaderView.SetTypeText(string.Empty);
+            MetadataHeaderView.SetUpdatedText(string.Empty);
+            MetadataHeaderView.SetKeysText(
+                "Select a Record PeopleCode item to view its source. Current Record mode browses field-event PeopleCode from PSPCMTXT/PSPCMPROG where OBJECTID1=1, OBJECTID2=2, and OBJECTID3=12.",
+                "Details");
             return;
         }
 
-        SelectedItemTitleTextBlock.Text = item.DisplayName;
-        SelectedItemSubtitleTextBlock.Text = item.RecordName;
-        MetadataSummaryTextBlock.Text = BuildMetadataText(item);
-        MetadataLastUpdatedTextBlock.Text = BuildLastUpdatedText(item.LastUpdatedBy, item.LastUpdatedDateTime);
+        MetadataHeaderView.SetTitle(item.DisplayName);
+        MetadataHeaderView.SetTypeText(item.LevelLabel);
+        MetadataHeaderView.SetKeysText(BuildMetadataText(item));
+        MetadataHeaderView.SetUpdatedText(BuildLastUpdatedText(item.LastUpdatedBy, item.LastUpdatedDateTime));
         _ = UpdateMetadataLastUpdatedAsync(item, metadataVersion);
     }
 
@@ -614,7 +617,7 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
             return;
         }
 
-        MetadataLastUpdatedTextBlock.Text = BuildLastUpdatedText(displayLabel, item.LastUpdatedDateTime);
+        MetadataHeaderView.SetUpdatedText(BuildLastUpdatedText(displayLabel, item.LastUpdatedDateTime));
     }
 
     private static string BuildLastUpdatedText(string displayLabel, DateTime? lastUpdatedDateTime)
@@ -626,7 +629,7 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
 
         string updatedBy = string.IsNullOrWhiteSpace(displayLabel) ? "(blank)" : displayLabel;
         string updatedOn = FormatLastUpdatedDateTime(lastUpdatedDateTime);
-        return $"Last updated by {updatedBy} on {updatedOn}";
+        return $"{updatedBy} · {updatedOn}";
     }
 
     private static string FormatLastUpdatedDateTime(DateTime? lastUpdatedDateTime)
@@ -813,7 +816,7 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
 
     private void UpdateDetachedSourceChrome()
     {
-        OpenDetachedSourceButton.IsEnabled = CanOpenDetachedSource();
+        MetadataHeaderView.OpenButton.IsEnabled = CanOpenDetachedSource();
         UpdateCompareChrome();
     }
 
@@ -822,10 +825,10 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
         return DetachedPeopleCodeSourceContextFactory.Create(
             _session,
             "Record",
-            SelectedItemTitleTextBlock.Text,
-            SelectedItemSubtitleTextBlock.Text,
-            MetadataSummaryTextBlock.Text,
-            MetadataLastUpdatedTextBlock.Text,
+            MetadataHeaderView.TitleText,
+            MetadataHeaderView.TypeValueText,
+            MetadataHeaderView.KeysValueText,
+            MetadataHeaderView.UpdatedValueText,
             _currentSourceText,
             _isGlobalSearchMode ? _activeGlobalSearchText : null,
             useSyntaxHighlighting: true);
@@ -838,7 +841,7 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
 
     private void UpdateCompareChrome()
     {
-        CompareSourceButton.IsEnabled = CanCompareSource();
+        MetadataHeaderView.CompareButton.IsEnabled = CanCompareSource();
     }
 
     private PeopleCodeCompareRequest? BuildCompareRequest(OracleConnectionSession comparisonProfile)
@@ -860,9 +863,9 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
                     ObjectType = AllObjectsPeopleCodeBrowserService.RecordMode,
                     SourceKey = _selectedItem
                 },
-                ObjectTitle = SelectedItemTitleTextBlock.Text,
-                ObjectSubtitle = SelectedItemSubtitleTextBlock.Text,
-                MetadataSummary = MetadataSummaryTextBlock.Text,
+                ObjectTitle = MetadataHeaderView.TitleText,
+                ObjectSubtitle = MetadataHeaderView.TypeValueText,
+                MetadataSummary = MetadataHeaderView.KeysValueText,
                 UseSyntaxHighlighting = true
             }
         };

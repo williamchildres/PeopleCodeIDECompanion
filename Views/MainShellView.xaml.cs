@@ -8,7 +8,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Animation;
 using PeopleCodeIDECompanion.Models;
 using PeopleCodeIDECompanion.Services;
 using Windows.ApplicationModel.DataTransfer;
@@ -28,12 +27,8 @@ public sealed partial class MainShellView : UserControl
     private readonly PeopleCodeOverviewView _peopleCodeOverviewView;
     private readonly OracleConnectionView _oracleConnectionView;
     private readonly ReferenceExplorerView _referenceExplorerView = new();
-    private readonly long _isPaneOpenCallbackToken;
     private INotifyCollectionChanged? _currentStatusCollection;
     private readonly List<PeopleCodeObjectStatusItem> _trackedStatuses = [];
-    private Storyboard? _paneFooterStoryboard;
-    private bool _paneFooterInitialized;
-    private bool _pendingPaneFooterExpandedState;
 
     public MainShellView()
     {
@@ -47,15 +42,10 @@ public sealed partial class MainShellView : UserControl
         _oracleConnectionView.ProfileDeleted += OracleConnectionView_ProfileDeleted;
         _peopleCodeInterfaceView.ActiveWorkspaceChanged += PeopleCodeInterfaceView_ActiveWorkspaceChanged;
         _peopleCodeOverviewView.NavigateToPeopleCodeObjectRequested += PeopleCodeOverviewView_NavigateToPeopleCodeObjectRequested;
-        BuildObjectStatusPanel();
-
-        _isPaneOpenCallbackToken = AppNavigationView.RegisterPropertyChangedCallback(
-            NavigationView.IsPaneOpenProperty,
-            (_, _) => UpdatePaneFooterLayout(animate: true));
         KeyDown += MainShellView_KeyDown;
         Loaded += MainShellView_Loaded;
         Unloaded += MainShellView_Unloaded;
-        UpdatePaneFooterLayout(animate: false);
+        UpdateShellContentLayout();
 
         ContentHost.Content = _peopleCodeInterfaceView;
         AppNavigationView.SelectedItem = PeopleCodeInterfaceNavigationItem;
@@ -228,32 +218,6 @@ public sealed partial class MainShellView : UserControl
         await Launcher.LaunchUriAsync(GitHubRepositoryUri);
     }
 
-    private async void ObjectStatusRefreshButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { Tag: string objectType })
-        {
-            return;
-        }
-
-        await _peopleCodeInterfaceView.RefreshObjectTypeAsync(objectType);
-    }
-
-    private void BuildObjectStatusPanel()
-    {
-        ObjectStatusPanel.Children.Clear();
-        CompactObjectStatusPanel.Children.Clear();
-
-        foreach (PeopleCodeObjectStatusItem status in ObjectStatuses)
-        {
-            StatusRowControls row = CreateStatusRow(status);
-            UpdateStatusRow(row, status);
-            Button compactButton = CreateCompactStatusButton(status);
-            UpdateCompactStatusButton(compactButton, status);
-            ObjectStatusPanel.Children.Add(row.Root);
-            CompactObjectStatusPanel.Children.Add(compactButton);
-        }
-    }
-
     private void RebindStatusSubscriptions()
     {
         if (_currentStatusCollection is not null)
@@ -278,9 +242,6 @@ public sealed partial class MainShellView : UserControl
             status.PropertyChanged += StatusItem_PropertyChanged;
             _trackedStatuses.Add(status);
         }
-
-        BuildObjectStatusPanel();
-        UpdatePaneFooterLayout();
     }
 
     private void ObjectStatuses_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -290,193 +251,10 @@ public sealed partial class MainShellView : UserControl
 
     private void StatusItem_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (sender is not PeopleCodeObjectStatusItem status)
+        if (sender is not PeopleCodeObjectStatusItem)
         {
             return;
         }
-
-        foreach (UIElement child in ObjectStatusPanel.Children)
-        {
-            if (child is Grid row && ReferenceEquals(row.Tag, status))
-            {
-                UpdateStatusRow(new StatusRowControls(
-                    row,
-                    (TextBlock)((StackPanel)row.Children[0]).Children[0],
-                    (TextBlock)((StackPanel)row.Children[0]).Children[1],
-                    (TextBlock)((StackPanel)row.Children[0]).Children[2],
-                    (Button)row.Children[1]),
-                    status);
-                break;
-            }
-        }
-
-        foreach (UIElement child in CompactObjectStatusPanel.Children)
-        {
-            if (child is Button button && ReferenceEquals(button.Tag, status.ObjectTypeName))
-            {
-                UpdateCompactStatusButton(button, status);
-                break;
-            }
-        }
-    }
-
-    private StatusRowControls CreateStatusRow(PeopleCodeObjectStatusItem status)
-    {
-        Grid row = new()
-        {
-            Margin = new Thickness(0, 0, 0, 6),
-            ColumnSpacing = 8,
-            Tag = status
-        };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        TextBlock nameTextBlock = new()
-        {
-            Style = Application.Current.Resources["CaptionTextBlockStyle"] as Style
-        };
-        TextBlock statusTextBlock = new()
-        {
-            Foreground = Application.Current.Resources["TextFillColorPrimaryBrush"] as Brush
-        };
-        TextBlock lastLoadedTextBlock = new()
-        {
-            Style = Application.Current.Resources["CaptionTextBlockStyle"] as Style,
-            Foreground = Application.Current.Resources["TextFillColorSecondaryBrush"] as Brush
-        };
-
-        StackPanel textPanel = new() { Spacing = 1 };
-        textPanel.Children.Add(nameTextBlock);
-        textPanel.Children.Add(statusTextBlock);
-        textPanel.Children.Add(lastLoadedTextBlock);
-        row.Children.Add(textPanel);
-
-        Button refreshButton = new()
-        {
-            MinWidth = 30,
-            MinHeight = 30,
-            Padding = new Thickness(6),
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Tag = status.ObjectTypeName,
-            Content = new FontIcon
-            {
-                Glyph = "\uE72C",
-                FontSize = 12
-            }
-        };
-        refreshButton.Click += ObjectStatusRefreshButton_Click;
-        Grid.SetColumn(refreshButton, 1);
-        row.Children.Add(refreshButton);
-
-        return new StatusRowControls(row, nameTextBlock, statusTextBlock, lastLoadedTextBlock, refreshButton);
-    }
-
-    private static void UpdateStatusRow(StatusRowControls row, PeopleCodeObjectStatusItem status)
-    {
-        row.NameTextBlock.Text = status.ObjectTypeName;
-        row.StatusTextBlock.Text = status.StatusText;
-        row.LastLoadedTextBlock.Text = status.LastLoadedDisplayText;
-        row.RefreshButton.IsEnabled = status.CanRefresh;
-    }
-
-    private Button CreateCompactStatusButton(PeopleCodeObjectStatusItem status)
-    {
-        Button button = new()
-        {
-            Width = 32,
-            Height = 32,
-            Padding = new Thickness(0),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Tag = status.ObjectTypeName,
-            Content = new FontIcon
-            {
-                Glyph = GetCompactGlyph(status.ObjectTypeName),
-                FontSize = 14
-            }
-        };
-        button.Click += ObjectStatusRefreshButton_Click;
-        return button;
-    }
-
-    private void UpdatePaneFooterLayout(bool animate = false)
-    {
-        bool showExpandedFooter = AppNavigationView.IsPaneOpen;
-
-        if (!_paneFooterInitialized || !animate)
-        {
-            ApplyPaneFooterState(showExpandedFooter);
-            _paneFooterInitialized = true;
-        }
-        else
-        {
-            AnimatePaneFooterState(showExpandedFooter);
-        }
-
-        foreach (PeopleCodeObjectStatusItem status in ObjectStatuses)
-        {
-            foreach (UIElement child in CompactObjectStatusPanel.Children)
-            {
-                if (child is Button button && ReferenceEquals(button.Tag, status.ObjectTypeName))
-                {
-                    UpdateCompactStatusButton(button, status);
-                    break;
-                }
-            }
-        }
-    }
-
-    private void AnimatePaneFooterState(bool showExpandedFooter)
-    {
-        _pendingPaneFooterExpandedState = showExpandedFooter;
-        _paneFooterStoryboard?.Stop();
-
-        ExpandedObjectStatusBorder.Visibility = Visibility.Visible;
-        CompactObjectStatusBorder.Visibility = Visibility.Visible;
-
-        DoubleAnimation expandedAnimation = new()
-        {
-            To = showExpandedFooter ? 1d : 0d,
-            Duration = new Duration(TimeSpan.FromMilliseconds(180)),
-            EnableDependentAnimation = true
-        };
-        Storyboard.SetTarget(expandedAnimation, ExpandedObjectStatusBorder);
-        Storyboard.SetTargetProperty(expandedAnimation, nameof(Opacity));
-
-        DoubleAnimation compactAnimation = new()
-        {
-            To = showExpandedFooter ? 0d : 1d,
-            Duration = new Duration(TimeSpan.FromMilliseconds(180)),
-            EnableDependentAnimation = true
-        };
-        Storyboard.SetTarget(compactAnimation, CompactObjectStatusBorder);
-        Storyboard.SetTargetProperty(compactAnimation, nameof(Opacity));
-
-        Storyboard storyboard = new();
-        storyboard.Children.Add(expandedAnimation);
-        storyboard.Children.Add(compactAnimation);
-        storyboard.Completed += PaneFooterStoryboard_Completed;
-        _paneFooterStoryboard = storyboard;
-        storyboard.Begin();
-    }
-
-    private void PaneFooterStoryboard_Completed(object? sender, object e)
-    {
-        if (sender is Storyboard storyboard)
-        {
-            storyboard.Completed -= PaneFooterStoryboard_Completed;
-        }
-
-        ApplyPaneFooterState(_pendingPaneFooterExpandedState);
-        _paneFooterStoryboard = null;
-    }
-
-    private void ApplyPaneFooterState(bool showExpandedFooter)
-    {
-        ExpandedObjectStatusBorder.Opacity = showExpandedFooter ? 1d : 0d;
-        CompactObjectStatusBorder.Opacity = showExpandedFooter ? 0d : 1d;
-        ExpandedObjectStatusBorder.Visibility = showExpandedFooter ? Visibility.Visible : Visibility.Collapsed;
-        CompactObjectStatusBorder.Visibility = showExpandedFooter ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void NavigateTo(string destination)
@@ -488,6 +266,30 @@ public sealed partial class MainShellView : UserControl
             "ReferenceExplorer" => _referenceExplorerView,
             _ => _peopleCodeInterfaceView
         };
+        UpdateShellContentLayout();
+    }
+
+    private void ShellContentScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateShellContentLayout();
+    }
+
+    private void UpdateShellContentLayout()
+    {
+        if (ContentHost.Content is not FrameworkElement content)
+        {
+            return;
+        }
+
+        double viewportWidth = Math.Max(0d, ShellContentScrollViewer.ActualWidth);
+        double viewportHeight = Math.Max(0d, ShellContentScrollViewer.ActualHeight);
+        double targetWidth = Math.Max(viewportWidth, content.MinWidth);
+        double targetHeight = Math.Max(viewportHeight, content.MinHeight);
+
+        ShellContentViewport.Width = targetWidth;
+        ShellContentViewport.Height = targetHeight;
+        ContentHost.Width = targetWidth;
+        ContentHost.Height = targetHeight;
     }
 
     private void NavigateToPeopleCodeInterface()
@@ -506,24 +308,6 @@ public sealed partial class MainShellView : UserControl
             NavigateToPeopleCodeInterface();
         }
     }
-
-    private static void UpdateCompactStatusButton(Button button, PeopleCodeObjectStatusItem status)
-    {
-        button.IsEnabled = status.CanRefresh;
-        ToolTipService.SetToolTip(
-            button,
-            $"{status.ObjectTypeName}\nStatus: {status.StatusText}\n{status.LastLoadedDisplayText}");
-    }
-
-    private static string GetCompactGlyph(string objectTypeName) => objectTypeName switch
-    {
-        AllObjectsPeopleCodeBrowserService.AppPackageMode => "\uE8B7",
-        AllObjectsPeopleCodeBrowserService.AppEngineMode => "\uE768",
-        AllObjectsPeopleCodeBrowserService.RecordMode => "\uE8D2",
-        AllObjectsPeopleCodeBrowserService.PageMode => "\uE7C3",
-        AllObjectsPeopleCodeBrowserService.ComponentMode => "\uE71D",
-        _ => "\uE72C"
-    };
 
     private async System.Threading.Tasks.Task AutoLoginAsync()
     {
@@ -601,13 +385,6 @@ public sealed partial class MainShellView : UserControl
 
         await _savedConnectionStore.UpdateLastConnectedAsync(session.ProfileId, DateTimeOffset.Now);
     }
-
-    private sealed record StatusRowControls(
-        Grid Root,
-        TextBlock NameTextBlock,
-        TextBlock StatusTextBlock,
-        TextBlock LastLoadedTextBlock,
-        Button RefreshButton);
 
     private async System.Threading.Tasks.Task ShowSettingsDialogAsync()
     {
@@ -730,10 +507,6 @@ public sealed partial class MainShellView : UserControl
 
     private void MainShellView_Unloaded(object sender, RoutedEventArgs e)
     {
-        AppNavigationView.UnregisterPropertyChangedCallback(
-            NavigationView.IsPaneOpenProperty,
-            _isPaneOpenCallbackToken);
-
         if (_currentStatusCollection is not null)
         {
             _currentStatusCollection.CollectionChanged -= ObjectStatuses_CollectionChanged;

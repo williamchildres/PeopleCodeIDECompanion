@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="PeopleCodeIDECompanion.Views.PeopleCodeMetadataHeaderView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid RowSpacing="4"
+          ColumnSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock x:Name="TitleTextBlock"
+                   VerticalAlignment="Center"
+                   MaxLines="1"
+                   TextTrimming="CharacterEllipsis"
+                   Style="{ThemeResource BodyStrongTextBlockStyle}" />
+
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    HorizontalAlignment="Right">
+            <Button x:Name="OpenButtonElement"
+                    Content="Open"
+                    IsEnabled="False"
+                    ToolTipService.ToolTip="Open in new window" />
+
+            <Button x:Name="CompareButtonElement"
+                    Content="Compare"
+                    IsEnabled="False"
+                    ToolTipService.ToolTip="Compare this source with another active profile" />
+        </StackPanel>
+
+        <TextBlock x:Name="TypeTextBlock"
+                   Grid.Row="1"
+                   Grid.ColumnSpan="2"
+                   TextWrapping="WrapWholeWords" />
+
+        <Grid x:Name="DetailsRowGrid"
+              Grid.Row="2"
+              Grid.ColumnSpan="2"
+              ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock x:Name="KeysTextBlock"
+                       TextWrapping="WrapWholeWords" />
+
+            <TextBlock x:Name="UpdatedTextBlock"
+                       Grid.Column="1"
+                       HorizontalAlignment="Right"
+                       TextWrapping="WrapWholeWords" />
+        </Grid>
+    </Grid>
+</UserControl>

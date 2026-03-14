@@ -48,6 +48,8 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         _detachedSourceWindowManager = detachedSourceWindowManager;
         _compareWindowManager = compareWindowManager;
         InitializeComponent();
+        MetadataHeaderView.OpenButton.Click += OpenDetachedSourceButton_Click;
+        MetadataHeaderView.CompareButton.Click += CompareSourceButton_Click;
         ProgramsListView.ItemsSource = _filteredPrograms;
         ItemsListView.ItemsSource = _filteredItems;
         SourceRichTextBlock.Blocks.Add(new Paragraph());
@@ -59,7 +61,6 @@ public sealed partial class AppEnginePlaceholderView : UserControl
     public void SetSession(OracleConnectionSession session)
     {
         _session = session;
-        RefreshButton.IsEnabled = true;
         GlobalSourceSearchButton.IsEnabled = true;
         _statusStore?.SetSessionAvailable(AllObjectsPeopleCodeBrowserService.AppEngineMode, hasSession: true);
         _ = LoadItemsAsync();
@@ -159,7 +160,7 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         }
 
         int sourceLoadVersion = ++_sourceLoadVersion;
-        MetadataSummaryTextBlock.Text = "Loading App Engine source...";
+        MetadataHeaderView.SetKeysText("Loading App Engine source...", "Details");
 
         AppEngineSourceResult result = await _browserService.GetSourceAsync(_session.Options, item);
         if (sourceLoadVersion != _sourceLoadVersion || !ReferenceEquals(_selectedItem, item))
@@ -171,14 +172,14 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         {
             InlineErrorInfoBar.Message = result.ErrorMessage;
             InlineErrorInfoBar.IsOpen = true;
-            MetadataSummaryTextBlock.Text = "App Engine source could not be loaded.";
+            MetadataHeaderView.SetKeysText("App Engine source could not be loaded.", "Details");
             SetSourceViewerText(string.Empty);
             return;
         }
 
-        MetadataSummaryTextBlock.Text = string.IsNullOrWhiteSpace(result.SourceText)
+        MetadataHeaderView.SetKeysText(string.IsNullOrWhiteSpace(result.SourceText)
             ? BuildMetadataText(item) + " No source rows were returned for the selected key."
-            : BuildMetadataText(item);
+            : BuildMetadataText(item));
 
         _hasLoadedSelectedSource = true;
         SetSourceViewerText(result.SourceText);
@@ -287,7 +288,7 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         SetMetadata(null);
         SetSourceViewerText(string.Empty);
         UpdateGlobalSearchChrome();
-        MetadataSummaryTextBlock.Text = "Loading App Engine metadata...";
+        MetadataHeaderView.SetKeysText("Loading App Engine metadata...", "Details");
 
         AppEngineBrowseResult result = await _browserService.GetItemsAsync(session.Options);
         if (loadItemsVersion != _loadItemsVersion ||
@@ -300,7 +301,7 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
             _statusStore?.MarkError(AllObjectsPeopleCodeBrowserService.AppEngineMode);
-            MetadataSummaryTextBlock.Text = "App Engine metadata could not be loaded.";
+            MetadataHeaderView.SetKeysText("App Engine metadata could not be loaded.", "Details");
             InlineErrorInfoBar.Message = result.ErrorMessage;
             InlineErrorInfoBar.IsOpen = true;
             return;
@@ -314,8 +315,9 @@ public sealed partial class AppEnginePlaceholderView : UserControl
 
         if (_allItems.Count == 0)
         {
-            MetadataSummaryTextBlock.Text =
-                "No App Engine PeopleCode rows were returned for the current read-only subset. This browser assumes OBJECTVALUE1..7 map to Program / Section / Market / DB Type / EffDt / Step / Action for OBJECTID1 = 66.";
+            MetadataHeaderView.SetKeysText(
+                "No App Engine PeopleCode rows were returned for the current read-only subset. This browser assumes OBJECTVALUE1..7 map to Program / Section / Market / DB Type / EffDt / Step / Action for OBJECTID1 = 66.",
+                "Details");
         }
 
         _statusStore?.MarkLoaded(AllObjectsPeopleCodeBrowserService.AppEngineMode);
@@ -576,18 +578,19 @@ public sealed partial class AppEnginePlaceholderView : UserControl
 
         if (item is null)
         {
-            MetadataLastUpdatedTextBlock.Text = string.Empty;
-            SelectedItemTitleTextBlock.Text = string.Empty;
-            SelectedItemSubtitleTextBlock.Text = string.Empty;
-            MetadataSummaryTextBlock.Text =
-                "Select an App Engine item to view its source. Current browsing assumes OBJECTVALUE1..7 map to Program / Section / Market / DB Type / EffDt / Step / Action for OBJECTID1 = 66.";
+            MetadataHeaderView.SetTitle(string.Empty);
+            MetadataHeaderView.SetTypeText(string.Empty);
+            MetadataHeaderView.SetUpdatedText(string.Empty);
+            MetadataHeaderView.SetKeysText(
+                "Select an App Engine item to view its source. Current browsing assumes OBJECTVALUE1..7 map to Program / Section / Market / DB Type / EffDt / Step / Action for OBJECTID1 = 66.",
+                "Details");
             return;
         }
 
-        SelectedItemTitleTextBlock.Text = item.DisplayName;
-        SelectedItemSubtitleTextBlock.Text = item.ProgramName;
-        MetadataSummaryTextBlock.Text = BuildMetadataText(item);
-        MetadataLastUpdatedTextBlock.Text = BuildLastUpdatedText(item.LastUpdatedBy, item.LastUpdatedDateTime);
+        MetadataHeaderView.SetTitle(item.DisplayName);
+        MetadataHeaderView.SetTypeText(BuildTypeText(item));
+        MetadataHeaderView.SetKeysText(BuildMetadataText(item));
+        MetadataHeaderView.SetUpdatedText(BuildLastUpdatedText(item.LastUpdatedBy, item.LastUpdatedDateTime));
         _ = UpdateMetadataLastUpdatedAsync(item, metadataVersion);
     }
 
@@ -616,7 +619,12 @@ public sealed partial class AppEnginePlaceholderView : UserControl
             return;
         }
 
-        MetadataLastUpdatedTextBlock.Text = BuildLastUpdatedText(displayLabel, item.LastUpdatedDateTime);
+        MetadataHeaderView.SetUpdatedText(BuildLastUpdatedText(displayLabel, item.LastUpdatedDateTime));
+    }
+
+    private static string BuildTypeText(AppEngineItem item)
+    {
+        return string.IsNullOrWhiteSpace(item.ActionName) ? "App Engine Step" : "App Engine Step Action";
     }
 
     private static string BuildLastUpdatedText(string displayLabel, DateTime? lastUpdatedDateTime)
@@ -628,7 +636,7 @@ public sealed partial class AppEnginePlaceholderView : UserControl
 
         string updatedBy = string.IsNullOrWhiteSpace(displayLabel) ? "(blank)" : displayLabel;
         string updatedOn = FormatLastUpdatedDateTime(lastUpdatedDateTime);
-        return $"Last updated by {updatedBy} on {updatedOn}";
+        return $"{updatedBy} · {updatedOn}";
     }
 
     private static string FormatLastUpdatedDateTime(DateTime? lastUpdatedDateTime)
@@ -823,7 +831,7 @@ public sealed partial class AppEnginePlaceholderView : UserControl
 
     private void UpdateDetachedSourceChrome()
     {
-        OpenDetachedSourceButton.IsEnabled = CanOpenDetachedSource();
+        MetadataHeaderView.OpenButton.IsEnabled = CanOpenDetachedSource();
         UpdateCompareChrome();
     }
 
@@ -832,10 +840,10 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         return DetachedPeopleCodeSourceContextFactory.Create(
             _session,
             "App Engine",
-            SelectedItemTitleTextBlock.Text,
-            SelectedItemSubtitleTextBlock.Text,
-            MetadataSummaryTextBlock.Text,
-            MetadataLastUpdatedTextBlock.Text,
+            MetadataHeaderView.TitleText,
+            MetadataHeaderView.TypeValueText,
+            MetadataHeaderView.KeysValueText,
+            MetadataHeaderView.UpdatedValueText,
             _currentSourceText,
             _isGlobalSearchMode ? _activeGlobalSearchText : null,
             useSyntaxHighlighting: true);
@@ -848,7 +856,7 @@ public sealed partial class AppEnginePlaceholderView : UserControl
 
     private void UpdateCompareChrome()
     {
-        CompareSourceButton.IsEnabled = CanCompareSource();
+        MetadataHeaderView.CompareButton.IsEnabled = CanCompareSource();
     }
 
     private PeopleCodeCompareRequest? BuildCompareRequest(OracleConnectionSession comparisonProfile)
@@ -870,9 +878,9 @@ public sealed partial class AppEnginePlaceholderView : UserControl
                     ObjectType = AllObjectsPeopleCodeBrowserService.AppEngineMode,
                     SourceKey = _selectedItem
                 },
-                ObjectTitle = SelectedItemTitleTextBlock.Text,
-                ObjectSubtitle = SelectedItemSubtitleTextBlock.Text,
-                MetadataSummary = MetadataSummaryTextBlock.Text,
+                ObjectTitle = MetadataHeaderView.TitleText,
+                ObjectSubtitle = MetadataHeaderView.TypeValueText,
+                MetadataSummary = MetadataHeaderView.KeysValueText,
                 UseSyntaxHighlighting = true
             }
         };

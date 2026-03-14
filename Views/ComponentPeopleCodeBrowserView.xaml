@@ -4,43 +4,41 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:PeopleCodeIDECompanion.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    HorizontalAlignment="Stretch"
+    VerticalAlignment="Stretch"
+    MinWidth="1280"
+    MinHeight="720"
     mc:Ignorable="d">
 
-    <Grid RowSpacing="12"
+    <Grid RowSpacing="10"
           ColumnSpacing="16">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Right">
-            <Button x:Name="RefreshButton"
-                    Content="Refresh"
-                    IsEnabled="False"
-                    Click="RefreshButton_Click" />
-        </StackPanel>
-
         <InfoBar x:Name="InlineErrorInfoBar"
-                 Grid.Row="1"
+                 Grid.Row="0"
                  IsClosable="False"
                  IsOpen="False"
                  Severity="Error" />
 
-        <Grid Grid.Row="2"
+        <Grid Grid.Row="1"
               ColumnSpacing="16">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="240" />
-                <ColumnDefinition Width="340" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="2.4*"
+                                  MinWidth="240" />
+                <ColumnDefinition Width="3.1*"
+                                  MinWidth="340" />
+                <ColumnDefinition Width="6.5*"
+                                  MinWidth="620" />
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0"
                     MinHeight="420"
-                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
@@ -91,7 +89,7 @@
 
             <Border Grid.Column="1"
                     MinHeight="420"
-                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
@@ -141,7 +139,7 @@
             </Border>
 
             <Grid Grid.Column="2"
-                  RowSpacing="16">
+                  RowSpacing="10">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -152,7 +150,7 @@
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         CornerRadius="8"
-                        Padding="12">
+                        Padding="10">
                     <Grid RowSpacing="8"
                           ColumnSpacing="8">
                         <Grid.RowDefinitions>
@@ -168,24 +166,24 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Text="Global Source Search"
-                                   Grid.ColumnSpan="3"
-                                   Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock Text="Global Search"
+                                   Style="{ThemeResource CaptionTextBlockStyle}" />
 
                         <TextBox x:Name="GlobalSourceSearchTextBox"
                                  Grid.Row="1"
+                                 Grid.ColumnSpan="3"
                                  PlaceholderText="Search PeopleCode source across the verified Component subset"
                                  KeyDown="GlobalSourceSearchTextBox_KeyDown" />
 
                         <Button x:Name="GlobalSourceSearchButton"
-                                Grid.Row="1"
+                                Grid.Row="0"
                                 Grid.Column="1"
                                 Content="Search"
                                 IsEnabled="False"
                                 Click="GlobalSourceSearchButton_Click" />
 
                         <Button x:Name="ClearGlobalSearchButton"
-                                Grid.Row="1"
+                                Grid.Row="0"
                                 Grid.Column="2"
                                 Content="Clear"
                                 IsEnabled="False"
@@ -220,30 +218,8 @@
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         CornerRadius="8"
-                        Padding="12">
-                    <StackPanel Spacing="6">
-                        <Grid ColumnSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Metadata"
-                                       Style="{ThemeResource SubtitleTextBlockStyle}" />
-                            <TextBlock x:Name="MetadataLastUpdatedTextBlock"
-                                       Grid.Column="1"
-                                       HorizontalAlignment="Right"
-                                       VerticalAlignment="Center"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       TextWrapping="WrapWholeWords" />
-                        </Grid>
-                        <TextBlock x:Name="SelectedItemTitleTextBlock"
-                                   TextWrapping="WrapWholeWords"
-                                   Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                        <TextBlock x:Name="SelectedItemSubtitleTextBlock"
-                                   TextWrapping="WrapWholeWords" />
-                        <TextBlock x:Name="MetadataSummaryTextBlock"
-                                   TextWrapping="WrapWholeWords" />
-                    </StackPanel>
+                        Padding="10">
+                    <local:PeopleCodeMetadataHeaderView x:Name="MetadataHeaderView" />
                 </Border>
 
                 <Border Grid.Row="2"
@@ -251,7 +227,7 @@
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         CornerRadius="8"
-                        Padding="12">
+                        Padding="10">
                     <Grid RowSpacing="8">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -264,40 +240,24 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
                             <TextBlock Text="PeopleCode Source"
                                        Style="{ThemeResource SubtitleTextBlockStyle}" />
 
-                            <Button x:Name="OpenDetachedSourceButton"
-                                       Grid.Column="1"
-                                       Content="Open"
-                                       IsEnabled="False"
-                                       ToolTipService.ToolTip="Open in new window"
-                                       Click="OpenDetachedSourceButton_Click" />
-
-                            <Button x:Name="CompareSourceButton"
-                                    Grid.Column="2"
-                                    Content="Compare"
-                                    IsEnabled="False"
-                                    ToolTipService.ToolTip="Compare this source with another active profile"
-                                    Click="CompareSourceButton_Click" />
-
                             <TextBlock x:Name="SourceMatchStatusTextBlock"
-                                       Grid.Column="3"
+                                       Grid.Column="1"
                                        VerticalAlignment="Center"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
                             <Button x:Name="PreviousSourceMatchButton"
-                                    Grid.Column="4"
+                                    Grid.Column="2"
                                     Content="Previous Match"
                                     IsEnabled="False"
                                     Click="PreviousSourceMatchButton_Click" />
 
                             <Button x:Name="NextSourceMatchButton"
-                                    Grid.Column="5"
+                                    Grid.Column="3"
                                     Content="Next Match"
                                     IsEnabled="False"
                                     Click="NextSourceMatchButton_Click" />

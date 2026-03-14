@@ -48,6 +48,8 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
         _detachedSourceWindowManager = detachedSourceWindowManager;
         _compareWindowManager = compareWindowManager;
         InitializeComponent();
+        MetadataHeaderView.OpenButton.Click += OpenDetachedSourceButton_Click;
+        MetadataHeaderView.CompareButton.Click += CompareSourceButton_Click;
         PagesListView.ItemsSource = _filteredPages;
         ItemsListView.ItemsSource = _filteredItems;
         SourceRichTextBlock.Blocks.Add(new Paragraph());
@@ -59,7 +61,6 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
     public void SetSession(OracleConnectionSession session)
     {
         _session = session;
-        RefreshButton.IsEnabled = true;
         GlobalSourceSearchButton.IsEnabled = true;
         _statusStore?.SetSessionAvailable(AllObjectsPeopleCodeBrowserService.PageMode, hasSession: true);
         _ = LoadItemsAsync();
@@ -159,7 +160,7 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
         }
 
         int sourceLoadVersion = ++_sourceLoadVersion;
-        MetadataSummaryTextBlock.Text = "Loading Page PeopleCode source...";
+        MetadataHeaderView.SetKeysText("Loading Page PeopleCode source...", "Details");
 
         PagePeopleCodeSourceResult result = await _browserService.GetSourceAsync(_session.Options, item);
         if (sourceLoadVersion != _sourceLoadVersion || !ReferenceEquals(_selectedItem, item))
@@ -171,14 +172,14 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
         {
             InlineErrorInfoBar.Message = result.ErrorMessage;
             InlineErrorInfoBar.IsOpen = true;
-            MetadataSummaryTextBlock.Text = "Page PeopleCode source could not be loaded.";
+            MetadataHeaderView.SetKeysText("Page PeopleCode source could not be loaded.", "Details");
             SetSourceViewerText(string.Empty);
             return;
         }
 
-        MetadataSummaryTextBlock.Text = string.IsNullOrWhiteSpace(result.SourceText)
+        MetadataHeaderView.SetKeysText(string.IsNullOrWhiteSpace(result.SourceText)
             ? BuildMetadataText(item) + " No source rows were returned for the selected key."
-            : BuildMetadataText(item);
+            : BuildMetadataText(item));
 
         _hasLoadedSelectedSource = true;
         SetSourceViewerText(result.SourceText);
@@ -287,7 +288,7 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
         SetMetadata(null);
         SetSourceViewerText(string.Empty);
         UpdateGlobalSearchChrome();
-        MetadataSummaryTextBlock.Text = "Loading Page PeopleCode metadata...";
+        MetadataHeaderView.SetKeysText("Loading Page PeopleCode metadata...", "Details");
 
         PagePeopleCodeBrowseResult result = await _browserService.GetItemsAsync(session.Options);
         if (loadItemsVersion != _loadItemsVersion ||
@@ -300,7 +301,7 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
             _statusStore?.MarkError(AllObjectsPeopleCodeBrowserService.PageMode);
-            MetadataSummaryTextBlock.Text = "Page PeopleCode metadata could not be loaded.";
+            MetadataHeaderView.SetKeysText("Page PeopleCode metadata could not be loaded.", "Details");
             InlineErrorInfoBar.Message = result.ErrorMessage;
             InlineErrorInfoBar.IsOpen = true;
             return;
@@ -314,8 +315,9 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
 
         if (_allItems.Count == 0)
         {
-            MetadataSummaryTextBlock.Text =
-                "No Page PeopleCode rows were returned for the current read-only subset. This browser currently reads page-scoped PSPCMTXT/PSPCMPROG rows where OBJECTID1=9, labels common Page Event and Page Record Field Event shapes, and leaves other page keys undecoded instead of assuming unsupported mappings.";
+            MetadataHeaderView.SetKeysText(
+                "No Page PeopleCode rows were returned for the current read-only subset. This browser currently reads page-scoped PSPCMTXT/PSPCMPROG rows where OBJECTID1=9, labels common Page Event and Page Record Field Event shapes, and leaves other page keys undecoded instead of assuming unsupported mappings.",
+                "Details");
         }
 
         _statusStore?.MarkLoaded(AllObjectsPeopleCodeBrowserService.PageMode);
@@ -577,18 +579,19 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
 
         if (item is null)
         {
-            MetadataLastUpdatedTextBlock.Text = string.Empty;
-            SelectedItemTitleTextBlock.Text = string.Empty;
-            SelectedItemSubtitleTextBlock.Text = string.Empty;
-            MetadataSummaryTextBlock.Text =
-                "Select a Page PeopleCode item to view its source. Current Page mode reads PSPCMTXT/PSPCMPROG rows where OBJECTID1=9, explicitly labels common Page Event and Page Record Field Event shapes, and shows raw key metadata when a page-scoped structure is not yet decoded.";
+            MetadataHeaderView.SetTitle(string.Empty);
+            MetadataHeaderView.SetTypeText(string.Empty);
+            MetadataHeaderView.SetUpdatedText(string.Empty);
+            MetadataHeaderView.SetKeysText(
+                "Select a Page PeopleCode item to view its source. Current Page mode reads PSPCMTXT/PSPCMPROG rows where OBJECTID1=9, explicitly labels common Page Event and Page Record Field Event shapes, and shows raw key metadata when a page-scoped structure is not yet decoded.",
+                "Details");
             return;
         }
 
-        SelectedItemTitleTextBlock.Text = item.DisplayName;
-        SelectedItemSubtitleTextBlock.Text = $"{item.PageName} | {item.StructureLabel}";
-        MetadataSummaryTextBlock.Text = BuildMetadataText(item);
-        MetadataLastUpdatedTextBlock.Text = BuildLastUpdatedText(item.LastUpdatedBy, item.LastUpdatedDateTime);
+        MetadataHeaderView.SetTitle(item.DisplayName);
+        MetadataHeaderView.SetTypeText(item.StructureLabel);
+        MetadataHeaderView.SetKeysText(BuildMetadataText(item));
+        MetadataHeaderView.SetUpdatedText(BuildLastUpdatedText(item.LastUpdatedBy, item.LastUpdatedDateTime));
         _ = UpdateMetadataLastUpdatedAsync(item, metadataVersion);
     }
 
@@ -614,7 +617,7 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
             return;
         }
 
-        MetadataLastUpdatedTextBlock.Text = BuildLastUpdatedText(displayLabel, item.LastUpdatedDateTime);
+        MetadataHeaderView.SetUpdatedText(BuildLastUpdatedText(displayLabel, item.LastUpdatedDateTime));
     }
 
     private static string BuildLastUpdatedText(string displayLabel, DateTime? lastUpdatedDateTime)
@@ -626,7 +629,7 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
 
         string updatedBy = string.IsNullOrWhiteSpace(displayLabel) ? "(blank)" : displayLabel;
         string updatedOn = FormatLastUpdatedDateTime(lastUpdatedDateTime);
-        return $"Last updated by {updatedBy} on {updatedOn}";
+        return $"{updatedBy} · {updatedOn}";
     }
 
     private static string FormatLastUpdatedDateTime(DateTime? lastUpdatedDateTime)
@@ -859,7 +862,7 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
 
     private void UpdateDetachedSourceChrome()
     {
-        OpenDetachedSourceButton.IsEnabled = CanOpenDetachedSource();
+        MetadataHeaderView.OpenButton.IsEnabled = CanOpenDetachedSource();
         UpdateCompareChrome();
     }
 
@@ -868,10 +871,10 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
         return DetachedPeopleCodeSourceContextFactory.Create(
             _session,
             "Page",
-            SelectedItemTitleTextBlock.Text,
-            SelectedItemSubtitleTextBlock.Text,
-            MetadataSummaryTextBlock.Text,
-            MetadataLastUpdatedTextBlock.Text,
+            MetadataHeaderView.TitleText,
+            MetadataHeaderView.TypeValueText,
+            MetadataHeaderView.KeysValueText,
+            MetadataHeaderView.UpdatedValueText,
             _currentSourceText,
             _isGlobalSearchMode ? _activeGlobalSearchText : null,
             useSyntaxHighlighting: true);
@@ -884,7 +887,7 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
 
     private void UpdateCompareChrome()
     {
-        CompareSourceButton.IsEnabled = CanCompareSource();
+        MetadataHeaderView.CompareButton.IsEnabled = CanCompareSource();
     }
 
     private PeopleCodeCompareRequest? BuildCompareRequest(OracleConnectionSession comparisonProfile)
@@ -906,9 +909,9 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
                     ObjectType = AllObjectsPeopleCodeBrowserService.PageMode,
                     SourceKey = _selectedItem
                 },
-                ObjectTitle = SelectedItemTitleTextBlock.Text,
-                ObjectSubtitle = SelectedItemSubtitleTextBlock.Text,
-                MetadataSummary = MetadataSummaryTextBlock.Text,
+                ObjectTitle = MetadataHeaderView.TitleText,
+                ObjectSubtitle = MetadataHeaderView.TypeValueText,
+                MetadataSummary = MetadataHeaderView.KeysValueText,
                 UseSyntaxHighlighting = true
             }
         };

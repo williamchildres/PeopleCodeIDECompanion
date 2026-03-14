@@ -5,14 +5,19 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    HorizontalAlignment="Stretch"
+    VerticalAlignment="Stretch"
+    MinWidth="1480"
+    MinHeight="920"
     mc:Ignorable="d">
 
-    <Grid Padding="24"
-          RowSpacing="12">
+    <Grid Padding="20,16,20,12"
+          RowSpacing="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Grid ColumnSpacing="16">
@@ -21,37 +26,92 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Spacing="4">
-                <TextBlock Text="PeopleCode Interface"
-                           Style="{ThemeResource TitleTextBlockStyle}" />
-                <TextBlock x:Name="ActiveProfileSummaryTextBlock"
-                           Style="{ThemeResource BodyStrongTextBlockStyle}"
-                           TextWrapping="WrapWholeWords" />
-                <TextBlock x:Name="ConnectedProfilesSummaryTextBlock"
-                           Style="{ThemeResource CaptionTextBlockStyle}"
-                           TextWrapping="WrapWholeWords"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <TextBlock x:Name="ModeSummaryTextBlock"
-                           Style="{ThemeResource CaptionTextBlockStyle}"
-                           TextWrapping="WrapWholeWords"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            </StackPanel>
+            <Grid RowSpacing="4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-            <StackPanel Grid.Column="1"
-                        Spacing="4"
-                        HorizontalAlignment="Right">
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
+                    <TextBlock Text="PeopleCode Interface"
+                               Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                    <TextBlock x:Name="ModeSummaryTextBlock"
+                               Grid.Column="1"
+                               VerticalAlignment="Center"
+                               TextWrapping="WrapWholeWords"
+                               Style="{ThemeResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Grid>
+
+                <Grid Grid.Row="1"
+                      ColumnSpacing="12"
+                      RowSpacing="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock x:Name="ActiveProfileSummaryTextBlock"
+                               Style="{ThemeResource BodyStrongTextBlockStyle}"
+                               TextWrapping="WrapWholeWords" />
+
+                    <TextBlock Grid.Column="1"
+                               Text="|"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                    <TextBlock x:Name="ConnectedProfilesSummaryTextBlock"
+                               Grid.Column="2"
+                               Style="{ThemeResource CaptionTextBlockStyle}"
+                               TextWrapping="WrapWholeWords"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                    <TextBlock x:Name="ConnectionSummaryTextBlock"
+                               Grid.Row="1"
+                               Style="{ThemeResource CaptionTextBlockStyle}"
+                               TextWrapping="WrapWholeWords"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                    <TextBlock Grid.Row="1"
+                               Grid.Column="1"
+                               Text="|"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                    <TextBlock x:Name="LastRefreshSummaryTextBlock"
+                               Grid.Row="1"
+                               Grid.Column="2"
+                               Style="{ThemeResource CaptionTextBlockStyle}"
+                               TextWrapping="WrapWholeWords"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Grid>
+            </Grid>
+
+            <StackPanel Grid.Column="1"
+                        Spacing="6"
+                        HorizontalAlignment="Right">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Database profile"
+                        <TextBlock Text="Profile"
                                    Style="{ThemeResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <ComboBox x:Name="ProfileComboBox"
-                                  Width="220"
+                                  Width="200"
                                   DisplayMemberPath="DisplayName"
                                   SelectionChanged="ProfileComboBox_SelectionChanged" />
                     </StackPanel>
@@ -62,7 +122,7 @@
                                    Style="{ThemeResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <ComboBox x:Name="ObjectTypeComboBox"
-                                  Width="180"
+                                  Width="168"
                                   SelectionChanged="ObjectTypeComboBox_SelectionChanged">
                             <x:String>All Objects</x:String>
                             <x:String>App Package</x:String>
@@ -71,6 +131,18 @@
                             <x:String>Page</x:String>
                             <x:String>Component</x:String>
                         </ComboBox>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2"
+                                Spacing="4">
+                        <TextBlock Text="Refresh"
+                                   Style="{ThemeResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Button x:Name="RefreshModeButton"
+                                Click="RefreshModeButton_Click"
+                                ToolTipService.ToolTip="Reload the current PeopleCode object type">
+                            <FontIcon Glyph="&#xE72C;" />
+                        </Button>
                     </StackPanel>
                 </Grid>
             </StackPanel>
@@ -82,8 +154,38 @@
                  IsClosable="True"
                  Severity="Warning" />
 
-        <ContentControl Grid.Row="2"
-                        x:Name="ModeContentHost"
-                        Margin="0,4,0,0" />
+        <ScrollViewer Grid.Row="2"
+                      x:Name="ModeContentScrollViewer"
+                      Margin="0,2,0,0"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto"
+                      SizeChanged="ModeContentScrollViewer_SizeChanged">
+            <Grid x:Name="ModeContentViewport"
+                  HorizontalAlignment="Stretch"
+                  VerticalAlignment="Stretch">
+                <ContentControl x:Name="ModeContentHost"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch" />
+            </Grid>
+        </ScrollViewer>
+
+        <Border Grid.Row="3"
+                Margin="0,10,0,0"
+                Padding="0,8,0,0"
+                BorderThickness="0,1,0,0"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+            <ScrollViewer HorizontalScrollMode="Enabled"
+                          HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollMode="Disabled"
+                          VerticalScrollBarVisibility="Disabled"
+                          ZoomMode="Disabled">
+                <StackPanel x:Name="ObjectStatusBarPanel"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            HorizontalAlignment="Right" />
+            </ScrollViewer>
+        </Border>
     </Grid>
 </UserControl>

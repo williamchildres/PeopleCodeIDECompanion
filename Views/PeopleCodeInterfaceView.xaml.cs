@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using PeopleCodeIDECompanion.Models;
 using PeopleCodeIDECompanion.Services;
 using Windows.System;
@@ -27,6 +30,8 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     private readonly DetachedSourceWindowManager _detachedSourceWindowManager = new();
     private readonly PeopleCodeCompareWindowManager _compareWindowManager;
     private readonly Dictionary<string, ProfileWorkspace> _workspaces = [];
+    private INotifyCollectionChanged? _trackedStatusCollection;
+    private readonly List<PeopleCodeObjectStatusItem> _trackedStatusItems = [];
     private bool _isUpdatingModeSelection;
     private bool _isUpdatingProfileSelection;
 
@@ -133,6 +138,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         SetSelectedMode(mode);
         ModeSummaryTextBlock.Text = GetModeSummary(mode);
         ModeContentHost.Content = workspace.GetContentForMode(mode);
+        UpdateModeContentLayout();
         return await workspace.OpenItemAsync(mode, sourceKey);
     }
 
@@ -155,6 +161,18 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     {
         SyncProfileSelection(session);
         ShowCurrentWorkspace();
+    }
+
+    private async void RefreshModeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (ActiveWorkspace is null)
+        {
+            return;
+        }
+
+        await RefreshObjectTypeAsync(ActiveWorkspace.CurrentMode);
+        UpdateHeader();
+        UpdateWorkspaceStatusSummary();
     }
 
     private void PeopleCodeInterfaceView_KeyDown(object sender, KeyRoutedEventArgs args)
@@ -227,28 +245,42 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         ProfileWorkspace? workspace = ActiveWorkspace;
         if (workspace is null)
         {
+            RebindWorkspaceStatusSubscriptions();
             ModeContentHost.Content = null;
             ModeSummaryTextBlock.Text = "Connect to at least one Oracle profile to browse read-only PeopleCode objects.";
             ConnectedProfilesSummaryTextBlock.Text = ConnectedProfiles.Count == 0
                 ? "No active database sessions."
                 : $"{ConnectedProfiles.Count} active database session(s).";
+            ConnectionSummaryTextBlock.Text = "No database selected";
+            LastRefreshSummaryTextBlock.Text = "Last refresh: not loaded";
+            UpdateWorkspaceStatusSummary();
             ActiveWorkspaceChanged?.Invoke(this, EventArgs.Empty);
             return;
         }
 
+        RebindWorkspaceStatusSubscriptions();
         SetSelectedMode(workspace.CurrentMode);
         ModeSummaryTextBlock.Text = GetModeSummary(workspace.CurrentMode);
         ConnectedProfilesSummaryTextBlock.Text = ConnectedProfiles.Count == 1
             ? "1 active database session."
             : $"{ConnectedProfiles.Count} active database sessions.";
         ActiveProfileSummaryTextBlock.Text = BuildActiveProfileSummary(workspace.Session);
+        ConnectionSummaryTextBlock.Text = BuildConnectionSummary(workspace.Session);
+        LastRefreshSummaryTextBlock.Text = BuildLastRefreshSummary(workspace.StatusStore.Items);
         ModeContentHost.Content = workspace.GetContentForMode(workspace.CurrentMode);
+        UpdateModeContentLayout();
+        UpdateWorkspaceStatusSummary();
         ActiveWorkspaceChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private static string BuildActiveProfileSummary(OracleConnectionSession session)
     {
-        return $"{session.DisplayName} | {session.Options.Username} @ {session.Options.Host}:{session.Options.Port}/{session.Options.ServiceName}";
+        return session.DisplayName;
+    }
+
+    private static string BuildConnectionSummary(OracleConnectionSession session)
+    {
+        return $"{session.Options.Host}:{session.Options.Port}/{session.Options.ServiceName}";
     }
 
     private void ProfileComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -302,6 +334,33 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         SetSelectedMode(mode);
         ModeSummaryTextBlock.Text = GetModeSummary(mode);
         ModeContentHost.Content = workspace.GetContentForMode(mode);
+        UpdateModeContentLayout();
+    }
+
+    private void ModeContentScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateModeContentLayout();
+    }
+
+    private void UpdateModeContentLayout()
+    {
+        if (ModeContentHost.Content is not FrameworkElement content)
+        {
+            return;
+        }
+
+        double viewportWidth = Math.Max(0d, ModeContentScrollViewer.ActualWidth);
+        double viewportHeight = Math.Max(0d, ModeContentScrollViewer.ActualHeight);
+        double targetWidth = Math.Max(viewportWidth, content.MinWidth);
+        double targetHeight = Math.Max(viewportHeight, content.MinHeight);
+        ModeContentViewport.Width = targetWidth;
+        ModeContentViewport.Height = targetHeight;
+        ModeContentHost.Width = targetWidth;
+        ModeContentHost.Height = targetHeight;
+        content.Width = targetWidth;
+        content.Height = targetHeight;
+        content.HorizontalAlignment = HorizontalAlignment.Stretch;
+        content.VerticalAlignment = VerticalAlignment.Stretch;
     }
 
     private void SetSelectedMode(string mode)
@@ -321,26 +380,227 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         bool hasProfiles = ConnectedProfiles.Count > 0;
         ProfileComboBox.IsEnabled = hasProfiles;
         ObjectTypeComboBox.IsEnabled = hasProfiles;
+        RefreshModeButton.IsEnabled = hasProfiles;
         ActiveProfileSummaryTextBlock.Text = _sessionManager.SelectedSession is null
             ? "No database selected."
             : BuildActiveProfileSummary(_sessionManager.SelectedSession);
+        ConnectionSummaryTextBlock.Text = _sessionManager.SelectedSession is null
+            ? "No active connection"
+            : BuildConnectionSummary(_sessionManager.SelectedSession);
+        LastRefreshSummaryTextBlock.Text = BuildLastRefreshSummary(ObjectStatuses);
         if (!hasProfiles)
         {
             ConnectedProfilesSummaryTextBlock.Text = "No active database sessions.";
         }
+
+        UpdateWorkspaceStatusSummary();
     }
 
     private static string GetModeSummary(string mode)
     {
         return mode switch
         {
-            AppPackageMode => "Browse App Package classes and search App Package PeopleCode with the current read-only tools.",
-            AllObjectsMode => "Search across all supported read-only PeopleCode object types from one workspace, then inspect grouped matches, metadata, and source without browsing the full corpus.",
-            AppEngineMode => "Browse read-only App Engine PeopleCode by program, section, step, and action, and search source text with the current Oracle-backed tools.",
-            RecordMode => "Browse read-only Record PeopleCode by record, field, and event, and search source text across the current field-event Record subset.",
-            PageMode => "Browse read-only Page PeopleCode by page and page-scoped item/event key, and search Page source text across the current Oracle-backed OBJECTID1=9 subset.",
-            ComponentMode => "Browse read-only Component PeopleCode by component and item/event within the verified Oracle-backed OBJECTID1=10 subset, and search source text across that same subset.",
+            AppPackageMode => "Packages and entries",
+            AllObjectsMode => "Search-first workspace",
+            AppEngineMode => "Programs and items",
+            RecordMode => "Records and events",
+            PageMode => "Pages and events",
+            ComponentMode => "Components and events",
             _ => "Browse read-only PeopleCode objects."
+        };
+    }
+
+    private static string BuildLastRefreshSummary(IEnumerable<PeopleCodeObjectStatusItem> statuses)
+    {
+        DateTimeOffset? lastLoaded = statuses
+            .Where(status => status.LastLoadedAt.HasValue)
+            .Select(status => status.LastLoadedAt)
+            .Max();
+
+        return lastLoaded.HasValue
+            ? $"Last refresh: {lastLoaded.Value.ToLocalTime():h:mm tt}"
+            : "Last refresh: not loaded";
+    }
+
+    private void RebindWorkspaceStatusSubscriptions()
+    {
+        if (_trackedStatusCollection is not null)
+        {
+            _trackedStatusCollection.CollectionChanged -= TrackedStatusCollection_CollectionChanged;
+        }
+
+        foreach (PeopleCodeObjectStatusItem statusItem in _trackedStatusItems)
+        {
+            statusItem.PropertyChanged -= StatusItem_PropertyChanged;
+        }
+
+        _trackedStatusItems.Clear();
+        _trackedStatusCollection = ObjectStatuses as INotifyCollectionChanged;
+        if (_trackedStatusCollection is not null)
+        {
+            _trackedStatusCollection.CollectionChanged += TrackedStatusCollection_CollectionChanged;
+        }
+
+        foreach (PeopleCodeObjectStatusItem statusItem in ObjectStatuses)
+        {
+            statusItem.PropertyChanged += StatusItem_PropertyChanged;
+            _trackedStatusItems.Add(statusItem);
+        }
+    }
+
+    private void TrackedStatusCollection_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RebindWorkspaceStatusSubscriptions();
+        UpdateHeader();
+    }
+
+    private void StatusItem_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        UpdateHeader();
+    }
+
+    private void UpdateWorkspaceStatusSummary()
+    {
+        if (ActiveWorkspace is null)
+        {
+            BuildObjectStatusBar();
+            return;
+        }
+
+        IReadOnlyList<string> statusParts = ActiveWorkspace.StatusStore.Items
+            .Select(status => $"{status.ObjectTypeName} {status.StatusText.ToLowerInvariant()}")
+            .ToList();
+
+        BuildObjectStatusBar();
+    }
+
+    private void BuildObjectStatusBar()
+    {
+        ObjectStatusBarPanel.Children.Clear();
+
+        foreach (PeopleCodeObjectStatusItem status in ObjectStatuses)
+        {
+            Border statusChip = new()
+            {
+                Background = Application.Current.Resources["LayerFillColorDefaultBrush"] as Brush,
+                BorderBrush = Application.Current.Resources["CardStrokeColorDefaultBrush"] as Brush,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(8, 4, 4, 4),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            StackPanel contentPanel = new()
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            TextBlock nameTextBlock = new()
+            {
+                Text = status.ObjectTypeName,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            nameTextBlock.Style = Application.Current.Resources["CaptionTextBlockStyle"] as Style;
+
+            FontIcon stateIcon = new()
+            {
+                Glyph = GetStatusGlyph(status),
+                FontSize = 10,
+                Foreground = GetStatusBrush(status),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            TextBlock stateTextBlock = new()
+            {
+                Text = GetCompactStatusLabel(status),
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Application.Current.Resources["TextFillColorSecondaryBrush"] as Brush
+            };
+            stateTextBlock.Style = Application.Current.Resources["CaptionTextBlockStyle"] as Style;
+
+            Button refreshButton = new()
+            {
+                MinWidth = 26,
+                Height = 24,
+                Padding = new Thickness(4, 0, 4, 0),
+                Tag = status.ObjectTypeName,
+                IsEnabled = status.CanRefresh,
+                VerticalAlignment = VerticalAlignment.Center,
+                Content = new FontIcon
+                {
+                    Glyph = "\uE72C",
+                    FontSize = 10
+                }
+            };
+            refreshButton.Click += RefreshStatusChipButton_Click;
+
+            contentPanel.Children.Add(nameTextBlock);
+            contentPanel.Children.Add(stateIcon);
+            contentPanel.Children.Add(stateTextBlock);
+            contentPanel.Children.Add(refreshButton);
+            statusChip.Child = contentPanel;
+
+            ToolTipService.SetToolTip(statusChip, BuildStatusToolTip(status));
+            ToolTipService.SetToolTip(
+                refreshButton,
+                $"{BuildStatusToolTip(status)}\nClick to refresh {status.ObjectTypeName} metadata.");
+
+            ObjectStatusBarPanel.Children.Add(statusChip);
+        }
+    }
+
+    private async void RefreshStatusChipButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string objectType })
+        {
+            return;
+        }
+
+        await RefreshObjectTypeAsync(objectType);
+        UpdateHeader();
+        UpdateWorkspaceStatusSummary();
+    }
+
+    private string BuildStatusToolTip(PeopleCodeObjectStatusItem status)
+    {
+        string profileContext = _sessionManager.SelectedSession is null
+            ? string.Empty
+            : $"\nProfile: {_sessionManager.SelectedSession.DisplayName}";
+        return $"{status.ObjectTypeName}\nStatus: {status.StatusText}\n{status.LastLoadedDisplayText}{profileContext}";
+    }
+
+    private static string GetCompactStatusLabel(PeopleCodeObjectStatusItem status)
+    {
+        return status.StatusText switch
+        {
+            "Loaded" => "Loaded",
+            "Loading..." => "Loading",
+            "Error" => "Error",
+            _ => "Not loaded"
+        };
+    }
+
+    private static string GetStatusGlyph(PeopleCodeObjectStatusItem status)
+    {
+        return status.StatusText switch
+        {
+            "Loaded" => "\uE73E",
+            "Loading..." => "\uE895",
+            "Error" => "\uEA39",
+            _ => "\uE711"
+        };
+    }
+
+    private static Brush? GetStatusBrush(PeopleCodeObjectStatusItem status)
+    {
+        return status.StatusText switch
+        {
+            "Loaded" => Application.Current.Resources["SystemFillColorSuccessBrush"] as Brush,
+            "Loading..." => Application.Current.Resources["SystemFillColorCautionBrush"] as Brush,
+            "Error" => Application.Current.Resources["SystemFillColorCriticalBrush"] as Brush,
+            _ => Application.Current.Resources["TextFillColorDisabledBrush"] as Brush
         };
     }
 
@@ -488,3 +748,4 @@ internal static class OracleConnectionSessionCollectionExtensions
         sessions[existingIndex] = session;
     }
 }
+
