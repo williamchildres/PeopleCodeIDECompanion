@@ -13,23 +13,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
 
     private readonly AppEnginePlaceholderView _appEngineView = new();
     private readonly AppPackageBrowserView _appPackageView = new();
-    private readonly ReadOnlyPlaceholderModeView _recordView = new(
-        new PlaceholderModeConfiguration(
-            ModeTitle: "Record PeopleCode",
-            ModeSubtitle: "Field, record, and related-definition browsing shell",
-            ModeDescription: "This placeholder keeps the PeopleCode Interface layout in place for Record browsing while the read-only Oracle-backed implementation is built next.",
-            BrowsePaneTitle: "Records",
-            BrowseSearchPlaceholder: "Search records",
-            BrowsePaneSamples: ["RECORD_AUDIT", "PS_JOB", "CUSTOM_PAYLOAD"],
-            BrowsePaneHint: "The left browse pane will list records available to the current session.",
-            ChildPaneTitle: "Fields / Events",
-            ChildSearchPlaceholder: "Search fields, events, or related items",
-            ChildPaneSamples: ["EFFDT.FieldChange", "EMPLID.FieldDefault", "SavePreChange"],
-            ChildPaneHint: "The middle pane will narrow to fields, record events, and related child items.",
-            MetadataTitle: "Selected record metadata",
-            MetadataSummary: "Future read-only metadata will summarize record identifiers, ownership, timestamps, and the selected PeopleCode-bearing child item.",
-            SourcePaneTitle: "PeopleCode Source Preview",
-            SourcePreviewText: "/* Record mode placeholder */\r\n/* Read-only record browsing is coming next. */\r\n\r\n/* Planned focus: records, fields, and event-level source preview. */"));
+    private readonly RecordPeopleCodeBrowserView _recordView = new();
     private readonly ReadOnlyPlaceholderModeView _pageView = new(
         new PlaceholderModeConfiguration(
             ModeTitle: "Page PeopleCode",
@@ -76,6 +60,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     {
         _appPackageView.SetSession(session);
         _appEngineView.SetSession(session);
+        _recordView.SetSession(session);
     }
 
     public void ShowAppPackage()
@@ -95,7 +80,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     public void ShowRecord()
     {
         SetSelectedMode(RecordMode);
-        ModeSummaryTextBlock.Text = "Preview the Record browsing shell with record-oriented search controls, pane layout, and read-only implementation notes while Oracle-backed browsing is added next.";
+        ModeSummaryTextBlock.Text = "Browse read-only Record PeopleCode by record, field, and event, and search source text across the current field-event Record subset.";
         ModeContentHost.Content = _recordView;
     }
 
