@@ -40,6 +40,9 @@
                           SelectionChanged="ObjectTypeComboBox_SelectionChanged">
                     <x:String>App Package</x:String>
                     <x:String>App Engine</x:String>
+                    <x:String>Record</x:String>
+                    <x:String>Page</x:String>
+                    <x:String>Component</x:String>
                 </ComboBox>
             </StackPanel>
         </Grid>
