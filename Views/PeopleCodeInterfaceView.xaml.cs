@@ -28,7 +28,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
 
     public void ShowAppEngine()
     {
-        ModeSummaryTextBlock.Text = "Prepare App Engine-specific browse and search workflows without changing the current runtime or query model yet.";
+        ModeSummaryTextBlock.Text = "Browse read-only App Engine PeopleCode by program, section, step, and action, and search source text with the current Oracle-backed tools.";
         ModeContentHost.Content = _appEngineView;
     }
 }

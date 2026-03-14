@@ -11,99 +11,279 @@
           ColumnSpacing="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="320" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
 
-        <Border Grid.Row="0"
-                Grid.ColumnSpan="2"
-                Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Padding="16">
-            <StackPanel Spacing="8">
+        <Grid Grid.Row="0"
+              ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Spacing="6">
                 <TextBlock Text="App Engine"
-                           Style="{ThemeResource SubtitleTextBlockStyle}" />
-                <TextBlock Text="Placeholder structure for future App Engine browsing and search. Inputs and results are intentionally separate from the App Package workflow."
-                           TextWrapping="WrapWholeWords"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                           Style="{ThemeResource TitleTextBlockStyle}" />
                 <TextBlock x:Name="ConnectionStateTextBlock"
-                           Text="No Oracle connection has been passed into this mode yet."
+                           Text="Connect from the Oracle Connection screen to load App Engine PeopleCode."
                            TextWrapping="WrapWholeWords" />
-            </StackPanel>
-        </Border>
-
-        <Border Grid.Row="1"
-                Grid.Column="0"
-                Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Padding="16">
-            <StackPanel Spacing="12">
-                <TextBlock Text="Browse/Search Inputs"
-                           Style="{ThemeResource SubtitleTextBlockStyle}" />
-                <TextBox Header="App Engine Name"
-                         PlaceholderText="AE_SAMPLE_PROCESS" />
-                <TextBox Header="Section"
-                         PlaceholderText="MAIN" />
-                <TextBox Header="Step / Action"
-                         PlaceholderText="STEP01 / SQL" />
-                <TextBox Header="PeopleCode Search"
-                         PlaceholderText="Search App Engine PeopleCode" />
-                <StackPanel Orientation="Horizontal"
-                            Spacing="8">
-                    <Button Content="Search"
-                            IsEnabled="False" />
-                    <Button Content="Clear"
-                            IsEnabled="False" />
-                </StackPanel>
-                <TextBlock Text="This mode is a placeholder. Oracle-backed App Engine queries are not implemented yet."
+                <TextBlock x:Name="StructureNoteTextBlock"
+                           Text="Read-only App Engine browsing uses the PeopleCode text tables and a practical Program / Section / Step / Action structure."
                            TextWrapping="WrapWholeWords"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </StackPanel>
-        </Border>
 
-        <Border Grid.Row="1"
-                Grid.Column="1"
-                Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Padding="16">
-            <Grid RowSpacing="12">
+            <Button x:Name="RefreshButton"
+                    Grid.Column="1"
+                    Content="Refresh"
+                    IsEnabled="False"
+                    Click="RefreshButton_Click" />
+        </Grid>
+
+        <InfoBar x:Name="InlineErrorInfoBar"
+                 Grid.Row="1"
+                 IsClosable="False"
+                 IsOpen="False"
+                 Severity="Error" />
+
+        <Grid Grid.Row="2"
+              ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    MinHeight="420"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Programs"
+                               Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                    <TextBox x:Name="ProgramSearchTextBox"
+                             Grid.Row="1"
+                             PlaceholderText="Search programs"
+                             TextChanged="ProgramSearchTextBox_TextChanged" />
+
+                    <ListView x:Name="ProgramsListView"
+                              Grid.Row="2"
+                              SelectionChanged="ProgramsListView_SelectionChanged"
+                              SelectionMode="Single" />
+
+                    <TextBlock x:Name="NoProgramsTextBlock"
+                               Grid.Row="3"
+                               Visibility="Collapsed"
+                               Text="No programs found."
+                               TextWrapping="WrapWholeWords"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1"
+                    MinHeight="420"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Step / Action Items"
+                               Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                    <TextBox x:Name="ItemSearchTextBox"
+                             Grid.Row="1"
+                             PlaceholderText="Search sections, steps, actions, or metadata"
+                             TextChanged="ItemSearchTextBox_TextChanged" />
+
+                    <ListView x:Name="ItemsListView"
+                              Grid.Row="2"
+                              SelectionChanged="ItemsListView_SelectionChanged"
+                              SelectionMode="Single"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Padding="8"
+                                            Spacing="4">
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                               TextWrapping="WrapWholeWords" />
+                                    <TextBlock Text="{Binding SearchSummary}"
+                                               TextWrapping="WrapWholeWords"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <TextBlock x:Name="NoItemsTextBlock"
+                               Grid.Row="3"
+                               Visibility="Collapsed"
+                               Text="No items found."
+                               TextWrapping="WrapWholeWords"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="2"
+                  RowSpacing="16">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="Results / Details"
-                           Style="{ThemeResource SubtitleTextBlockStyle}" />
-
-                <TextBlock Grid.Row="1"
-                           Text="Future App Engine results can show program structure, matching sections/actions, and source preview here."
-                           TextWrapping="WrapWholeWords"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-
-                <Border Grid.Row="2"
-                        Background="{ThemeResource ControlFillColorDefaultBrush}"
+                <Border Background="{ThemeResource ControlFillColorSecondaryBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
-                        CornerRadius="6"
+                        CornerRadius="8"
                         Padding="12">
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="No App Engine results yet."
+                    <Grid RowSpacing="8"
+                          ColumnSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="Global Source Search"
+                                   Grid.ColumnSpan="3"
+                                   Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                        <TextBox x:Name="GlobalSourceSearchTextBox"
+                                 Grid.Row="1"
+                                 PlaceholderText="Search PeopleCode source across App Engine items"
+                                 KeyDown="GlobalSourceSearchTextBox_KeyDown" />
+
+                        <Button x:Name="GlobalSourceSearchButton"
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Content="Search"
+                                IsEnabled="False"
+                                Click="GlobalSourceSearchButton_Click" />
+
+                        <Button x:Name="ClearGlobalSearchButton"
+                                Grid.Row="1"
+                                Grid.Column="2"
+                                Content="Clear"
+                                IsEnabled="False"
+                                Visibility="Collapsed"
+                                Click="ClearGlobalSearchButton_Click" />
+
+                        <InfoBar x:Name="GlobalSearchErrorInfoBar"
+                                 Grid.Row="2"
+                                 Grid.ColumnSpan="3"
+                                 IsClosable="False"
+                                 IsOpen="False"
+                                 Severity="Error" />
+
+                        <TextBlock x:Name="GlobalSearchStatusTextBlock"
+                                   Grid.Row="3"
+                                   Grid.ColumnSpan="3"
+                                   Visibility="Collapsed"
+                                   TextWrapping="WrapWholeWords"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="1"
+                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="12">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Metadata"
+                                   Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Name="SelectedItemTitleTextBlock"
+                                   TextWrapping="WrapWholeWords"
                                    Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                        <TextBlock Text="This reserved area will hold browse results, metadata, and PeopleCode source when App Engine support is implemented."
+                        <TextBlock x:Name="SelectedItemSubtitleTextBlock"
+                                   TextWrapping="WrapWholeWords" />
+                        <TextBlock x:Name="MetadataSummaryTextBlock"
                                    TextWrapping="WrapWholeWords" />
                     </StackPanel>
                 </Border>
+
+                <Border Grid.Row="2"
+                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="12">
+                    <Grid RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Text="PeopleCode Source"
+                                       Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                            <TextBlock x:Name="SourceMatchStatusTextBlock"
+                                       Grid.Column="1"
+                                       VerticalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                            <Button x:Name="PreviousSourceMatchButton"
+                                    Grid.Column="2"
+                                    Content="Previous Match"
+                                    IsEnabled="False"
+                                    Click="PreviousSourceMatchButton_Click" />
+
+                            <Button x:Name="NextSourceMatchButton"
+                                    Grid.Column="3"
+                                    Content="Next Match"
+                                    IsEnabled="False"
+                                    Click="NextSourceMatchButton_Click" />
+                        </Grid>
+
+                        <ScrollViewer x:Name="SourceScrollViewer"
+                                      Grid.Row="1"
+                                      HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Auto">
+                            <RichTextBlock x:Name="SourceRichTextBlock"
+                                           MinHeight="300"
+                                           FontFamily="Consolas"
+                                           IsTextSelectionEnabled="True"
+                                           TextWrapping="NoWrap" />
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
             </Grid>
-        </Border>
+        </Grid>
     </Grid>
 </UserControl>
