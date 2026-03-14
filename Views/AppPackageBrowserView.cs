@@ -5,20 +5,25 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Markup;
 using Microsoft.UI.Xaml.Media;
 using PeopleCodeIDECompanion.Models;
 using PeopleCodeIDECompanion.Services;
+using Windows.System;
 
 namespace PeopleCodeIDECompanion.Views;
 
 public sealed class AppPackageBrowserView : UserControl
 {
+    private const int GlobalSearchResultLimit = 200;
+
     private readonly AppPackageBrowserService _browserService = new();
     private readonly List<string> _allPackageRoots = [];
     private readonly List<AppPackageEntry> _allEntries = [];
     private readonly ObservableCollection<AppPackageEntry> _filteredEntries = [];
     private readonly ObservableCollection<string> _filteredPackageRoots = [];
+    private readonly ObservableCollection<AppPackageSourceSearchMatch> _globalSearchResults = [];
 
     private readonly TextBlock _connectionSummaryTextBlock;
     private readonly Button _refreshButton;
@@ -29,6 +34,12 @@ public sealed class AppPackageBrowserView : UserControl
     private readonly TextBox _entrySearchTextBox;
     private readonly TextBlock _noEntriesTextBlock;
     private readonly ListView _entriesListView;
+    private readonly TextBox _globalSourceSearchTextBox;
+    private readonly Button _globalSourceSearchButton;
+    private readonly Button _clearGlobalSearchButton;
+    private readonly InfoBar _globalSearchErrorInfoBar;
+    private readonly TextBlock _globalSearchStatusTextBlock;
+    private readonly TextBlock _globalSearchLimitationTextBlock;
     private readonly TextBlock _selectedEntryTitleTextBlock;
     private readonly TextBlock _selectedEntryTypeTextBlock;
     private readonly TextBlock _metadataSummaryTextBlock;
@@ -36,7 +47,10 @@ public sealed class AppPackageBrowserView : UserControl
 
     private OracleConnectionSession? _session;
     private AppPackageEntry? _selectedEntry;
+    private int _globalSearchVersion;
     private int _sourceLoadVersion;
+    private bool _isGlobalSearchMode;
+    private string _activeGlobalSearchText = string.Empty;
 
     public AppPackageBrowserView()
     {
@@ -66,12 +80,14 @@ public sealed class AppPackageBrowserView : UserControl
         };
         _packageSearchTextBox.TextChanged += PackageSearchTextBox_TextChanged;
 
-        _noPackagesTextBlock = BuildEmptyStateTextBlock("No packages found");
+        _noPackagesTextBlock = BuildEmptyStateTextBlock("No packages found.");
 
         _packageRootsListView = new ListView
         {
             ItemsSource = _filteredPackageRoots
         };
+        ScrollViewer.SetVerticalScrollBarVisibility(_packageRootsListView, ScrollBarVisibility.Auto);
+        ScrollViewer.SetHorizontalScrollBarVisibility(_packageRootsListView, ScrollBarVisibility.Disabled);
         _packageRootsListView.SelectionChanged += PackageRootsListView_SelectionChanged;
 
         _entrySearchTextBox = new TextBox
@@ -80,14 +96,53 @@ public sealed class AppPackageBrowserView : UserControl
         };
         _entrySearchTextBox.TextChanged += EntrySearchTextBox_TextChanged;
 
-        _noEntriesTextBlock = BuildEmptyStateTextBlock("No entries found");
+        _noEntriesTextBlock = BuildEmptyStateTextBlock("No entries found.");
 
         _entriesListView = new ListView
         {
             ItemsSource = _filteredEntries,
             ItemTemplate = BuildEntryTemplate()
         };
+        ScrollViewer.SetVerticalScrollBarVisibility(_entriesListView, ScrollBarVisibility.Auto);
+        ScrollViewer.SetHorizontalScrollBarVisibility(_entriesListView, ScrollBarVisibility.Disabled);
         _entriesListView.SelectionChanged += EntriesListView_SelectionChanged;
+
+        _globalSourceSearchTextBox = new TextBox
+        {
+            PlaceholderText = "Search PeopleCode source text across App Packages"
+        };
+        _globalSourceSearchTextBox.KeyDown += GlobalSourceSearchTextBox_KeyDown;
+
+        _globalSourceSearchButton = new Button
+        {
+            Content = "Search",
+            IsEnabled = false
+        };
+        _globalSourceSearchButton.Click += GlobalSourceSearchButton_Click;
+
+        _clearGlobalSearchButton = new Button
+        {
+            Content = "Clear",
+            IsEnabled = false,
+            Visibility = Visibility.Collapsed
+        };
+        _clearGlobalSearchButton.Click += ClearGlobalSearchButton_Click;
+
+        _globalSearchErrorInfoBar = new InfoBar
+        {
+            IsClosable = false,
+            IsOpen = false,
+            Severity = InfoBarSeverity.Error
+        };
+
+        _globalSearchStatusTextBlock = BuildEmptyStateTextBlock(string.Empty);
+
+        _globalSearchLimitationTextBlock = new TextBlock
+        {
+            Text = $"Matches are case-insensitive, limited to the first {GlobalSearchResultLimit} matching entries, and currently match within stored source rows rather than across row boundaries.",
+            Foreground = Application.Current.Resources["TextFillColorSecondaryBrush"] as Brush,
+            TextWrapping = TextWrapping.WrapWholeWords
+        };
 
         _selectedEntryTitleTextBlock = new TextBlock
         {
@@ -112,7 +167,9 @@ public sealed class AppPackageBrowserView : UserControl
         };
 
         Content = BuildLayout();
+        SetGlobalSearchStatus(string.Empty, false);
         SetMetadata(null);
+        UpdateGlobalSearchChrome();
     }
 
     public void SetSession(OracleConnectionSession session)
@@ -122,6 +179,7 @@ public sealed class AppPackageBrowserView : UserControl
             ? $"Connected as {session.Options.Username} to {session.Options.Host}:{session.Options.Port}/{session.Options.ServiceName}"
             : $"Connected with profile {session.DisplayName} as {session.Options.Username} to {session.Options.Host}:{session.Options.Port}/{session.Options.ServiceName}";
         _refreshButton.IsEnabled = true;
+        _globalSourceSearchButton.IsEnabled = true;
         _ = LoadEntriesAsync();
     }
 
@@ -168,9 +226,12 @@ public sealed class AppPackageBrowserView : UserControl
 
         Grid detailGrid = new() { RowSpacing = 16 };
         detailGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        detailGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         detailGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         Grid.SetColumn(detailGrid, 2);
         contentGrid.Children.Add(detailGrid);
+
+        detailGrid.Children.Add(BuildGlobalSearchBorder());
 
         StackPanel metadataPanel = new() { Spacing = 6 };
         TextBlock metadataTitle = new() { Text = "Metadata" };
@@ -179,7 +240,9 @@ public sealed class AppPackageBrowserView : UserControl
         metadataPanel.Children.Add(_selectedEntryTitleTextBlock);
         metadataPanel.Children.Add(_selectedEntryTypeTextBlock);
         metadataPanel.Children.Add(_metadataSummaryTextBlock);
-        detailGrid.Children.Add(BuildPlainBorder(metadataPanel));
+        Border metadataBorder = BuildPlainBorder(metadataPanel);
+        Grid.SetRow(metadataBorder, 1);
+        detailGrid.Children.Add(metadataBorder);
 
         Grid sourceGrid = new() { RowSpacing = 8 };
         sourceGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -187,7 +250,6 @@ public sealed class AppPackageBrowserView : UserControl
         TextBlock sourceTitle = new() { Text = "PeopleCode Source" };
         sourceTitle.Style = Application.Current.Resources["SubtitleTextBlockStyle"] as Style;
         sourceGrid.Children.Add(sourceTitle);
-        Grid.SetRow(_sourceTextBox, 1);
         ScrollViewer sourceScrollViewer = new()
         {
             Content = _sourceTextBox,
@@ -197,22 +259,79 @@ public sealed class AppPackageBrowserView : UserControl
         Grid.SetRow(sourceScrollViewer, 1);
         sourceGrid.Children.Add(sourceScrollViewer);
         Border sourceBorder = BuildPlainBorder(sourceGrid);
-        Grid.SetRow(sourceBorder, 1);
+        Grid.SetRow(sourceBorder, 2);
         detailGrid.Children.Add(sourceBorder);
 
         return root;
     }
 
+    private Border BuildGlobalSearchBorder()
+    {
+        Grid searchGrid = new() { RowSpacing = 8, ColumnSpacing = 8 };
+        searchGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        searchGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        searchGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        searchGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        searchGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        TextBlock titleBlock = new() { Text = "Global PeopleCode Search" };
+        titleBlock.Style = Application.Current.Resources["SubtitleTextBlockStyle"] as Style;
+        Grid.SetColumnSpan(titleBlock, 3);
+        searchGrid.Children.Add(titleBlock);
+
+        Grid.SetRow(_globalSourceSearchTextBox, 1);
+        searchGrid.Children.Add(_globalSourceSearchTextBox);
+
+        Grid.SetRow(_globalSourceSearchButton, 1);
+        Grid.SetColumn(_globalSourceSearchButton, 1);
+        searchGrid.Children.Add(_globalSourceSearchButton);
+
+        Grid.SetRow(_clearGlobalSearchButton, 1);
+        Grid.SetColumn(_clearGlobalSearchButton, 2);
+        searchGrid.Children.Add(_clearGlobalSearchButton);
+
+        Grid.SetRow(_globalSearchErrorInfoBar, 2);
+        Grid.SetColumnSpan(_globalSearchErrorInfoBar, 3);
+        searchGrid.Children.Add(_globalSearchErrorInfoBar);
+
+        Grid.SetRow(_globalSearchStatusTextBlock, 3);
+        Grid.SetColumnSpan(_globalSearchStatusTextBlock, 3);
+        searchGrid.Children.Add(_globalSearchStatusTextBlock);
+
+        Grid.SetRow(_globalSearchLimitationTextBlock, 4);
+        Grid.SetColumnSpan(_globalSearchLimitationTextBlock, 3);
+        searchGrid.Children.Add(_globalSearchLimitationTextBlock);
+
+        return BuildPlainBorder(searchGrid);
+    }
+
     private static Border BuildSectionBorder(string title, TextBox searchTextBox, ListView listView, TextBlock emptyStateTextBlock)
     {
-        StackPanel stack = new() { Spacing = 8 };
+        Grid sectionGrid = new() { RowSpacing = 8 };
+        sectionGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        sectionGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        sectionGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        sectionGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
         TextBlock titleBlock = new() { Text = title };
         titleBlock.Style = Application.Current.Resources["SubtitleTextBlockStyle"] as Style;
-        stack.Children.Add(titleBlock);
-        stack.Children.Add(searchTextBox);
-        stack.Children.Add(listView);
-        stack.Children.Add(emptyStateTextBlock);
-        return BuildPlainBorder(stack);
+        sectionGrid.Children.Add(titleBlock);
+
+        Grid.SetRow(searchTextBox, 1);
+        sectionGrid.Children.Add(searchTextBox);
+
+        Grid.SetRow(listView, 2);
+        sectionGrid.Children.Add(listView);
+
+        Grid.SetRow(emptyStateTextBlock, 3);
+        sectionGrid.Children.Add(emptyStateTextBlock);
+
+        Border border = BuildPlainBorder(sectionGrid);
+        border.MinHeight = 420;
+        return border;
     }
 
     private static TextBlock BuildEmptyStateTextBlock(string text)
@@ -271,6 +390,27 @@ public sealed class AppPackageBrowserView : UserControl
         ApplyEntryFilter();
     }
 
+    private async void GlobalSourceSearchButton_Click(object sender, RoutedEventArgs e)
+    {
+        await SearchGlobalSourceAsync();
+    }
+
+    private async void GlobalSourceSearchTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Enter)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        await SearchGlobalSourceAsync();
+    }
+
+    private void ClearGlobalSearchButton_Click(object sender, RoutedEventArgs e)
+    {
+        ClearGlobalSearchMode();
+    }
+
     private async void EntriesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         _selectedEntry = _entriesListView.SelectedItem as AppPackageEntry;
@@ -319,9 +459,17 @@ public sealed class AppPackageBrowserView : UserControl
         _filteredEntries.Clear();
         _allEntries.Clear();
         _selectedEntry = null;
+        _globalSearchVersion++;
         _sourceLoadVersion++;
         _packageSearchTextBox.Text = string.Empty;
         _entrySearchTextBox.Text = string.Empty;
+        _globalSearchResults.Clear();
+        _globalSourceSearchTextBox.Text = string.Empty;
+        _globalSearchErrorInfoBar.IsOpen = false;
+        _isGlobalSearchMode = false;
+        _activeGlobalSearchText = string.Empty;
+        UpdateGlobalSearchChrome();
+        SetGlobalSearchStatus(string.Empty, false);
         SetMetadata(null);
         _metadataSummaryTextBlock.Text = "Loading App Package metadata...";
 
@@ -349,6 +497,9 @@ public sealed class AppPackageBrowserView : UserControl
         if (_allPackageRoots.Count > 0)
         {
             ApplyPackageSearchFilter();
+            SelectVisiblePackage(null);
+            ApplyEntryFilter();
+            SelectVisibleEntry(null);
         }
         else
         {
@@ -363,7 +514,7 @@ public sealed class AppPackageBrowserView : UserControl
 
         _filteredPackageRoots.Clear();
 
-        IEnumerable<string> matches = _allPackageRoots;
+        IEnumerable<string> matches = GetVisiblePackageRoots();
         if (!string.IsNullOrWhiteSpace(searchText))
         {
             matches = matches.Where(packageRoot =>
@@ -375,20 +526,12 @@ public sealed class AppPackageBrowserView : UserControl
             _filteredPackageRoots.Add(packageRoot);
         }
 
+        _noPackagesTextBlock.Text = _isGlobalSearchMode
+            ? "No packages match the current global PeopleCode search."
+            : "No packages found.";
         _noPackagesTextBlock.Visibility = _filteredPackageRoots.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
-        string? nextPackage = _filteredPackageRoots.FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(previouslySelectedPackage) &&
-            _filteredPackageRoots.Contains(previouslySelectedPackage, StringComparer.OrdinalIgnoreCase))
-        {
-            nextPackage = previouslySelectedPackage;
-        }
-
-        if (!string.Equals(_packageRootsListView.SelectedItem as string, nextPackage, StringComparison.OrdinalIgnoreCase))
-        {
-            _packageRootsListView.SelectedItem = nextPackage;
-        }
-
+        SelectVisiblePackage(previouslySelectedPackage);
         ApplyEntryFilter();
     }
 
@@ -400,7 +543,7 @@ public sealed class AppPackageBrowserView : UserControl
 
         _filteredEntries.Clear();
 
-        IEnumerable<AppPackageEntry> matches = _allEntries;
+        IEnumerable<AppPackageEntry> matches = GetVisibleEntries();
         if (!string.IsNullOrWhiteSpace(selectedPackage))
         {
             matches = matches.Where(entry =>
@@ -421,33 +564,197 @@ public sealed class AppPackageBrowserView : UserControl
             _filteredEntries.Add(entry);
         }
 
+        _noEntriesTextBlock.Text = _isGlobalSearchMode
+            ? "No matching entries found for the selected package."
+            : "No entries found.";
         _noEntriesTextBlock.Visibility =
             !string.IsNullOrWhiteSpace(selectedPackage) && _filteredEntries.Count == 0
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
-        AppPackageEntry? nextEntry = _filteredEntries.FirstOrDefault();
-        if (previouslySelectedEntry is not null && _filteredEntries.Contains(previouslySelectedEntry))
+        SelectVisibleEntry(previouslySelectedEntry);
+
+        if (_filteredEntries.Count == 0)
         {
-            nextEntry = previouslySelectedEntry;
+            _selectedEntry = null;
+            _sourceLoadVersion++;
+            _sourceTextBox.Text = string.Empty;
+            SetMetadata(null);
+        }
+    }
+
+    private async Task SearchGlobalSourceAsync()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        string searchText = _globalSourceSearchTextBox.Text.Trim();
+        int searchVersion = ++_globalSearchVersion;
+
+        _globalSearchErrorInfoBar.IsOpen = false;
+        _globalSearchResults.Clear();
+
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            SetGlobalSearchStatus("Enter source text to search.", true);
+            return;
+        }
+
+        SetGlobalSearchStatus("Searching App Package PeopleCode...", true);
+        _globalSourceSearchButton.IsEnabled = false;
+        UpdateGlobalSearchChrome();
+
+        AppPackageSourceSearchResult result = await _browserService.SearchSourceAsync(
+            _session.Options,
+            searchText,
+            GlobalSearchResultLimit);
+
+        if (searchVersion != _globalSearchVersion)
+        {
+            return;
+        }
+
+        _globalSourceSearchButton.IsEnabled = true;
+        UpdateGlobalSearchChrome();
+
+        if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+        {
+            SetGlobalSearchStatus(string.Empty, false);
+            _globalSearchErrorInfoBar.Message = result.ErrorMessage;
+            _globalSearchErrorInfoBar.IsOpen = true;
+            return;
+        }
+
+        foreach (AppPackageSourceSearchMatch match in result.Matches)
+        {
+            _globalSearchResults.Add(match);
+        }
+
+        EnterGlobalSearchMode(searchText, result.WasLimited);
+    }
+
+    private void EnterGlobalSearchMode(string searchText, bool wasLimited)
+    {
+        _isGlobalSearchMode = true;
+        _activeGlobalSearchText = searchText;
+        _globalSearchErrorInfoBar.IsOpen = false;
+        UpdateGlobalSearchChrome();
+
+        string? preferredPackage = _selectedEntry?.PackageRoot;
+        AppPackageEntry? preferredEntry = _selectedEntry;
+
+        ApplyPackageSearchFilter();
+        SelectVisiblePackage(preferredPackage);
+        ApplyEntryFilter();
+        SelectVisibleEntry(preferredEntry);
+
+        int packageCount = _globalSearchResults
+            .Select(match => match.Entry.PackageRoot)
+            .Where(packageRoot => !string.IsNullOrWhiteSpace(packageRoot))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+        string countMessage = _globalSearchResults.Count == 0
+            ? $"Global search mode is active for \"{searchText}\". No matching entries were found."
+            : $"Global search mode is active for \"{searchText}\". {_globalSearchResults.Count} matching entries across {packageCount} package(s).";
+        string limitMessage = wasLimited
+            ? $" Showing the first {_globalSearchResults.Count} matches."
+            : string.Empty;
+        SetGlobalSearchStatus(countMessage + limitMessage, true);
+    }
+
+    private void ClearGlobalSearchMode()
+    {
+        _isGlobalSearchMode = false;
+        _activeGlobalSearchText = string.Empty;
+        _globalSearchResults.Clear();
+        _globalSearchErrorInfoBar.IsOpen = false;
+        SetGlobalSearchStatus(string.Empty, false);
+        UpdateGlobalSearchChrome();
+
+        string? preferredPackage = _selectedEntry?.PackageRoot;
+        AppPackageEntry? preferredEntry = _selectedEntry;
+
+        ApplyPackageSearchFilter();
+        SelectVisiblePackage(preferredPackage);
+        ApplyEntryFilter();
+        SelectVisibleEntry(preferredEntry);
+    }
+
+    private IEnumerable<string> GetVisiblePackageRoots()
+    {
+        return _isGlobalSearchMode
+            ? _globalSearchResults
+                .Select(match => match.Entry.PackageRoot)
+                .Where(packageRoot => !string.IsNullOrWhiteSpace(packageRoot))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(packageRoot => packageRoot, StringComparer.OrdinalIgnoreCase)
+            : _allPackageRoots;
+    }
+
+    private IEnumerable<AppPackageEntry> GetVisibleEntries()
+    {
+        if (!_isGlobalSearchMode)
+        {
+            return _allEntries;
+        }
+
+        return _globalSearchResults
+            .Select(match => FindExistingEntry(match.Entry))
+            .Where(entry => entry is not null)
+            .Cast<AppPackageEntry>()
+            .Distinct(EntryIdentityComparer.Instance);
+    }
+
+    private AppPackageEntry? FindExistingEntry(AppPackageEntry searchEntry)
+    {
+        return _allEntries.FirstOrDefault(existingEntry => EntriesMatch(existingEntry, searchEntry));
+    }
+
+    private void UpdateGlobalSearchChrome()
+    {
+        bool hasActiveMode = _isGlobalSearchMode;
+        _clearGlobalSearchButton.Visibility = hasActiveMode ? Visibility.Visible : Visibility.Collapsed;
+        _clearGlobalSearchButton.IsEnabled = hasActiveMode;
+        _globalSearchLimitationTextBlock.Visibility =
+            hasActiveMode || !string.IsNullOrWhiteSpace(_activeGlobalSearchText)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+    }
+
+    private void SelectVisiblePackage(string? preferredPackage)
+    {
+        string? nextPackage = _filteredPackageRoots.FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(preferredPackage) &&
+            _filteredPackageRoots.Contains(preferredPackage, StringComparer.OrdinalIgnoreCase))
+        {
+            nextPackage = preferredPackage;
+        }
+
+        if (!string.Equals(_packageRootsListView.SelectedItem as string, nextPackage, StringComparison.OrdinalIgnoreCase))
+        {
+            _packageRootsListView.SelectedItem = nextPackage;
+        }
+    }
+
+    private void SelectVisibleEntry(AppPackageEntry? preferredEntry)
+    {
+        AppPackageEntry? nextEntry = _filteredEntries.FirstOrDefault();
+        if (preferredEntry is not null)
+        {
+            AppPackageEntry? matchingEntry = _filteredEntries.FirstOrDefault(entry => EntriesMatch(entry, preferredEntry));
+            if (matchingEntry is not null)
+            {
+                nextEntry = matchingEntry;
+            }
         }
 
         if (!ReferenceEquals(_entriesListView.SelectedItem, nextEntry))
         {
             _entriesListView.SelectedItem = nextEntry;
         }
-
-        if (nextEntry is null)
-        {
-            _selectedEntry = null;
-            _sourceLoadVersion++;
-            _sourceTextBox.Text = string.Empty;
-            SetMetadata(null);
-            return;
-        }
-
-        _selectedEntry = nextEntry;
-        SetMetadata(nextEntry);
     }
 
     private static bool EntryMatchesSearch(AppPackageEntry entry, string searchText)
@@ -461,6 +768,23 @@ public sealed class AppPackageBrowserView : UserControl
             || entry.ObjectValue5.Contains(searchText, StringComparison.OrdinalIgnoreCase)
             || entry.ObjectValue6.Contains(searchText, StringComparison.OrdinalIgnoreCase)
             || entry.ObjectValue7.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool EntriesMatch(AppPackageEntry left, AppPackageEntry right)
+    {
+        return left.PackageRoot.Equals(right.PackageRoot, StringComparison.OrdinalIgnoreCase)
+            && left.ObjectValue2.Equals(right.ObjectValue2, StringComparison.OrdinalIgnoreCase)
+            && left.ObjectValue3.Equals(right.ObjectValue3, StringComparison.OrdinalIgnoreCase)
+            && left.ObjectValue4.Equals(right.ObjectValue4, StringComparison.OrdinalIgnoreCase)
+            && left.ObjectValue5.Equals(right.ObjectValue5, StringComparison.OrdinalIgnoreCase)
+            && left.ObjectValue6.Equals(right.ObjectValue6, StringComparison.OrdinalIgnoreCase)
+            && left.ObjectValue7.Equals(right.ObjectValue7, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void SetGlobalSearchStatus(string text, bool isVisible)
+    {
+        _globalSearchStatusTextBlock.Text = text;
+        _globalSearchStatusTextBlock.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void SetMetadata(AppPackageEntry? entry)
@@ -482,5 +806,37 @@ public sealed class AppPackageBrowserView : UserControl
     private static string ValueOrPlaceholder(string value)
     {
         return string.IsNullOrWhiteSpace(value) ? "(blank)" : value;
+    }
+
+    private sealed class EntryIdentityComparer : IEqualityComparer<AppPackageEntry>
+    {
+        public static EntryIdentityComparer Instance { get; } = new();
+
+        public bool Equals(AppPackageEntry? x, AppPackageEntry? y)
+        {
+            if (ReferenceEquals(x, y))
+            {
+                return true;
+            }
+
+            if (x is null || y is null)
+            {
+                return false;
+            }
+
+            return EntriesMatch(x, y);
+        }
+
+        public int GetHashCode(AppPackageEntry obj)
+        {
+            return HashCode.Combine(
+                obj.PackageRoot.ToUpperInvariant(),
+                obj.ObjectValue2.ToUpperInvariant(),
+                obj.ObjectValue3.ToUpperInvariant(),
+                obj.ObjectValue4.ToUpperInvariant(),
+                obj.ObjectValue5.ToUpperInvariant(),
+                obj.ObjectValue6.ToUpperInvariant(),
+                obj.ObjectValue7.ToUpperInvariant());
+        }
     }
 }

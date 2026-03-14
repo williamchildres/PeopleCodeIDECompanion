@@ -166,8 +166,177 @@ ORDER BY PROGSEQ
         }
     }
 
+    public async Task<AppPackageSourceSearchResult> SearchSourceAsync(
+        OracleConnectionOptions options,
+        string searchText,
+        int maxResults,
+        CancellationToken cancellationToken = default)
+    {
+        const string query = """
+WITH matched_rows AS
+(
+    SELECT
+        text_match.OBJECTVALUE1,
+        text_match.OBJECTVALUE2,
+        text_match.OBJECTVALUE3,
+        text_match.OBJECTVALUE4,
+        text_match.OBJECTVALUE5,
+        text_match.OBJECTVALUE6,
+        text_match.OBJECTVALUE7,
+        text_match.PROGSEQ,
+        text_match.PCTEXT,
+        ROW_NUMBER() OVER
+        (
+            PARTITION BY
+                text_match.OBJECTVALUE1,
+                text_match.OBJECTVALUE2,
+                text_match.OBJECTVALUE3,
+                text_match.OBJECTVALUE4,
+                text_match.OBJECTVALUE5,
+                text_match.OBJECTVALUE6,
+                text_match.OBJECTVALUE7
+            ORDER BY text_match.PROGSEQ
+        ) AS MATCH_ROW_NUMBER
+    FROM PSPCMTXT text_match
+    WHERE text_match.OBJECTID1 = 104
+      AND DBMS_LOB.INSTR(UPPER(text_match.PCTEXT), :searchTextUpper) > 0
+),
+prog_rows AS
+(
+    SELECT
+        prog.OBJECTVALUE1,
+        prog.OBJECTVALUE2,
+        prog.OBJECTVALUE3,
+        prog.OBJECTVALUE4,
+        prog.OBJECTVALUE5,
+        prog.OBJECTVALUE6,
+        prog.OBJECTVALUE7,
+        MAX(prog.LASTUPDOPRID) AS LASTUPDOPRID,
+        MAX(prog.LASTUPDDTTM) AS LASTUPDDTTM
+    FROM PSPCMPROG prog
+    WHERE prog.OBJECTID1 = 104
+    GROUP BY
+        prog.OBJECTVALUE1,
+        prog.OBJECTVALUE2,
+        prog.OBJECTVALUE3,
+        prog.OBJECTVALUE4,
+        prog.OBJECTVALUE5,
+        prog.OBJECTVALUE6,
+        prog.OBJECTVALUE7
+)
+SELECT
+    search_rows.OBJECTVALUE1,
+    search_rows.OBJECTVALUE2,
+    search_rows.OBJECTVALUE3,
+    search_rows.OBJECTVALUE4,
+    search_rows.OBJECTVALUE5,
+    search_rows.OBJECTVALUE6,
+    search_rows.OBJECTVALUE7,
+    search_rows.MATCH_PROGSEQ,
+    search_rows.MATCH_PREVIEW,
+    search_rows.LASTUPDOPRID,
+    search_rows.LASTUPDDTTM
+FROM
+(
+    SELECT
+        matched_rows.OBJECTVALUE1,
+        matched_rows.OBJECTVALUE2,
+        matched_rows.OBJECTVALUE3,
+        matched_rows.OBJECTVALUE4,
+        matched_rows.OBJECTVALUE5,
+        matched_rows.OBJECTVALUE6,
+        matched_rows.OBJECTVALUE7,
+        matched_rows.PROGSEQ AS MATCH_PROGSEQ,
+        matched_rows.PCTEXT AS MATCH_PREVIEW,
+        prog_rows.LASTUPDOPRID,
+        prog_rows.LASTUPDDTTM
+    FROM matched_rows
+    LEFT JOIN prog_rows
+        ON prog_rows.OBJECTVALUE1 = matched_rows.OBJECTVALUE1
+        AND prog_rows.OBJECTVALUE2 = matched_rows.OBJECTVALUE2
+        AND prog_rows.OBJECTVALUE3 = matched_rows.OBJECTVALUE3
+        AND prog_rows.OBJECTVALUE4 = matched_rows.OBJECTVALUE4
+        AND prog_rows.OBJECTVALUE5 = matched_rows.OBJECTVALUE5
+        AND prog_rows.OBJECTVALUE6 = matched_rows.OBJECTVALUE6
+        AND prog_rows.OBJECTVALUE7 = matched_rows.OBJECTVALUE7
+    WHERE matched_rows.MATCH_ROW_NUMBER = 1
+    ORDER BY
+        UPPER(matched_rows.OBJECTVALUE1),
+        UPPER(matched_rows.OBJECTVALUE2),
+        UPPER(matched_rows.OBJECTVALUE3),
+        UPPER(matched_rows.OBJECTVALUE4),
+        UPPER(matched_rows.OBJECTVALUE5),
+        UPPER(matched_rows.OBJECTVALUE6),
+        UPPER(matched_rows.OBJECTVALUE7)
+) search_rows
+WHERE ROWNUM <= :maxResults
+""";
+
+        try
+        {
+            List<AppPackageSourceSearchMatch> matches = [];
+
+            await using OracleConnection connection = new(OracleConnectionStringFactory.Create(options));
+            await connection.OpenAsync(cancellationToken);
+
+            await using OracleCommand command = new(query, connection);
+            command.BindByName = true;
+            command.Parameters.Add(
+                "searchTextUpper",
+                OracleDbType.Varchar2,
+                searchText.ToUpperInvariant(),
+                System.Data.ParameterDirection.Input);
+            command.Parameters.Add("maxResults", OracleDbType.Int32, maxResults, System.Data.ParameterDirection.Input);
+
+            await using OracleDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                AppPackageEntry entry = new()
+                {
+                    PackageRoot = GetString(reader, 0),
+                    ObjectValue2 = GetString(reader, 1),
+                    ObjectValue3 = GetString(reader, 2),
+                    ObjectValue4 = GetString(reader, 3),
+                    ObjectValue5 = GetString(reader, 4),
+                    ObjectValue6 = GetString(reader, 5),
+                    ObjectValue7 = GetString(reader, 6),
+                    LastUpdatedBy = GetString(reader, 9),
+                    LastUpdatedDateTime = reader.IsDBNull(10) ? null : reader.GetDateTime(10)
+                };
+
+                matches.Add(new AppPackageSourceSearchMatch
+                {
+                    Entry = entry,
+                    MatchSequence = reader.IsDBNull(7) ? 0 : Convert.ToInt32(reader.GetValue(7)),
+                    MatchPreview = NormalizePreview(GetString(reader, 8))
+                });
+            }
+
+            return new AppPackageSourceSearchResult
+            {
+                Matches = matches,
+                WasLimited = matches.Count >= maxResults
+            };
+        }
+        catch (Exception exception)
+        {
+            return new AppPackageSourceSearchResult
+            {
+                ErrorMessage = exception.Message
+            };
+        }
+    }
+
     private static string GetString(OracleDataReader reader, int ordinal)
     {
         return reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);
+    }
+
+    private static string NormalizePreview(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "(matching source row was blank)"
+            : value.Trim().Replace('\t', ' ');
     }
 }
