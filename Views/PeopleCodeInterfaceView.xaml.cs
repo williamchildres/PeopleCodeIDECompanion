@@ -14,23 +14,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     private readonly AppEnginePlaceholderView _appEngineView = new();
     private readonly AppPackageBrowserView _appPackageView = new();
     private readonly RecordPeopleCodeBrowserView _recordView = new();
-    private readonly ReadOnlyPlaceholderModeView _pageView = new(
-        new PlaceholderModeConfiguration(
-            ModeTitle: "Page PeopleCode",
-            ModeSubtitle: "Page, control, and event browsing shell",
-            ModeDescription: "This placeholder reserves the same three-pane workflow for Page objects so the UI stays consistent before real read-only browsing is added.",
-            BrowsePaneTitle: "Pages",
-            BrowseSearchPlaceholder: "Search pages",
-            BrowsePaneSamples: ["JOB_DATA", "PERSONAL_DATA", "MY_CUSTOM_PAGE"],
-            BrowsePaneHint: "The left browse pane will list pages and page definitions returned by the selected environment.",
-            ChildPaneTitle: "Controls / Events",
-            ChildSearchPlaceholder: "Search controls, events, or page items",
-            ChildPaneSamples: ["DERIVED_NAME.FieldChange", "Level 1 Grid.RowInit", "Activate"],
-            ChildPaneHint: "The middle pane will focus on page controls, component buffers, and event entry points.",
-            MetadataTitle: "Selected page metadata",
-            MetadataSummary: "Future read-only metadata will summarize page keys, control context, event names, and update audit details for the selected page item.",
-            SourcePaneTitle: "PeopleCode Source Preview",
-            SourcePreviewText: "/* Page mode placeholder */\r\n/* Read-only page browsing is coming next. */\r\n\r\n/* Planned focus: pages, controls, and page-event source preview. */"));
+    private readonly PagePeopleCodeBrowserView _pageView = new();
     private readonly ReadOnlyPlaceholderModeView _componentView = new(
         new PlaceholderModeConfiguration(
             ModeTitle: "Component PeopleCode",
@@ -61,6 +45,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         _appPackageView.SetSession(session);
         _appEngineView.SetSession(session);
         _recordView.SetSession(session);
+        _pageView.SetSession(session);
     }
 
     public void ShowAppPackage()
@@ -87,7 +72,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     public void ShowPage()
     {
         SetSelectedMode(PageMode);
-        ModeSummaryTextBlock.Text = "Preview the Page browsing shell with page-oriented search controls, pane layout, and read-only implementation notes while Oracle-backed browsing is added next.";
+        ModeSummaryTextBlock.Text = "Browse read-only Page PeopleCode by page and page-scoped item/event key, and search Page source text across the current Oracle-backed OBJECTID1=9 subset.";
         ModeContentHost.Content = _pageView;
     }
 
