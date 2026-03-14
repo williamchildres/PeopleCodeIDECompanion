@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using PeopleCodeIDECompanion.Models;
 using PeopleCodeIDECompanion.Services;
 using Windows.System;
+using Windows.UI.Core;
 
 namespace PeopleCodeIDECompanion.Views;
 
@@ -33,7 +35,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         _sessionManager = sessionManager;
         _compareWindowManager = new PeopleCodeCompareWindowManager(sessionManager);
         InitializeComponent();
-        KeyboardAccelerators.Add(BuildFindKeyboardAccelerator());
+        AddHandler(KeyDownEvent, new KeyEventHandler(PeopleCodeInterfaceView_KeyDown), true);
         ProfileComboBox.ItemsSource = ConnectedProfiles;
         _sessionManager.SessionsChanged += SessionManager_SessionsChanged;
         _sessionManager.SelectedSessionChanged += SessionManager_SelectedSessionChanged;
@@ -155,8 +157,13 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         ShowCurrentWorkspace();
     }
 
-    private void FindKeyboardAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    private void PeopleCodeInterfaceView_KeyDown(object sender, KeyRoutedEventArgs args)
     {
+        if (args.Key != VirtualKey.F || !IsControlPressed())
+        {
+            return;
+        }
+
         args.Handled = true;
         FocusGlobalSearch();
     }
@@ -337,15 +344,10 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         };
     }
 
-    private KeyboardAccelerator BuildFindKeyboardAccelerator()
+    private static bool IsControlPressed()
     {
-        KeyboardAccelerator accelerator = new()
-        {
-            Key = VirtualKey.F,
-            Modifiers = VirtualKeyModifiers.Control
-        };
-        accelerator.Invoked += FindKeyboardAccelerator_Invoked;
-        return accelerator;
+        CoreVirtualKeyStates controlState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control);
+        return (controlState & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down;
     }
 
     private sealed class ProfileWorkspace

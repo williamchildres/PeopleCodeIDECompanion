@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
@@ -9,6 +10,7 @@ using PeopleCodeIDECompanion.Models;
 using PeopleCodeIDECompanion.Services;
 using Windows.Foundation;
 using Windows.System;
+using Windows.UI.Core;
 
 namespace PeopleCodeIDECompanion.Views;
 
@@ -23,7 +25,7 @@ public sealed partial class DetachedSourceView : UserControl
     {
         InitializeComponent();
         SourceRichTextBlock.Blocks.Add(new Paragraph());
-        KeyboardAccelerators.Add(BuildFindKeyboardAccelerator());
+        AddHandler(KeyDownEvent, new KeyEventHandler(DetachedSourceView_KeyDown), true);
     }
 
     public DetachedSourceView(DetachedPeopleCodeSourceContext context)
@@ -68,8 +70,13 @@ public sealed partial class DetachedSourceView : UserControl
         NavigateCurrentSourceMatch(1);
     }
 
-    private async void FindKeyboardAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    private async void DetachedSourceView_KeyDown(object sender, KeyRoutedEventArgs args)
     {
+        if (args.Key != VirtualKey.F || !IsControlPressed())
+        {
+            return;
+        }
+
         args.Handled = true;
         await ShowFindDialogAsync();
     }
@@ -199,15 +206,10 @@ public sealed partial class DetachedSourceView : UserControl
         SourceScrollViewer.ChangeView(horizontalOffset, verticalOffset, null, false);
     }
 
-    private KeyboardAccelerator BuildFindKeyboardAccelerator()
+    private static bool IsControlPressed()
     {
-        KeyboardAccelerator accelerator = new()
-        {
-            Key = VirtualKey.F,
-            Modifiers = VirtualKeyModifiers.Control
-        };
-        accelerator.Invoked += FindKeyboardAccelerator_Invoked;
-        return accelerator;
+        CoreVirtualKeyStates controlState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control);
+        return (controlState & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down;
     }
 
     private async System.Threading.Tasks.Task ShowFindDialogAsync()
