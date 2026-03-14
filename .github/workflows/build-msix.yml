@@ -1,0 +1,112 @@
+name: Build MSIX
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-msix:
+    runs-on: windows-latest
+
+    env:
+      CONFIGURATION: Release
+      PLATFORM: x64
+      PROJECT_PATH: PeopleCodeIDECompanion.csproj
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore $env:PROJECT_PATH
+
+      - name: Build and package MSIX
+        run: >
+          dotnet build $env:PROJECT_PATH
+          -c $env:CONFIGURATION
+          -p:Platform=$env:PLATFORM
+          -p:GenerateAppxPackageOnBuild=true
+
+      - name: Collect packaged outputs
+        id: collect
+        shell: pwsh
+        run: |
+          # The package folder name includes the app version, so discover outputs dynamically.
+          $msix = Get-ChildItem -Path 'AppPackages' -Recurse -File -Filter '*.msix' |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+
+          if (-not $msix) {
+            throw 'No .msix package was found under AppPackages.'
+          }
+
+          $artifactDir = Join-Path $env:RUNNER_TEMP 'msix-artifacts'
+          $bundleDir = Join-Path $artifactDir 'bundle'
+          New-Item -ItemType Directory -Force -Path $artifactDir, $bundleDir | Out-Null
+
+          Copy-Item -Path $msix.FullName -Destination $artifactDir
+          Copy-Item -Path $msix.FullName -Destination $bundleDir
+
+          $certificate = Get-ChildItem -Path $msix.DirectoryName -File -Filter '*.cer' |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+
+          if ($certificate) {
+            Copy-Item -Path $certificate.FullName -Destination $artifactDir
+            Copy-Item -Path $certificate.FullName -Destination $bundleDir
+            "cer_path=$($certificate.FullName)" >> $env:GITHUB_OUTPUT
+            "cer_name=$($certificate.Name)" >> $env:GITHUB_OUTPUT
+          }
+          else {
+            "cer_path=" >> $env:GITHUB_OUTPUT
+            "cer_name=" >> $env:GITHUB_OUTPUT
+          }
+
+          @"
+          Install notes
+          =============
+
+          1. Install the included certificate before opening the MSIX if Windows does not already trust it.
+          2. To trust it on a test PC, open the .cer file and install it for the current user or local machine.
+          3. Import the certificate into Trusted People or Trusted Root Certification Authorities if prompted by your environment.
+          4. After the certificate is trusted, open the .msix file to install PeopleCodeIDECompanion.
+
+          This package is currently test-signed for internal testing.
+          "@ | Set-Content -Path (Join-Path $bundleDir 'install-note.txt')
+
+          $zipPath = Join-Path $artifactDir 'PeopleCodeIDECompanion-package.zip'
+          Compress-Archive -Path (Join-Path $bundleDir '*') -DestinationPath $zipPath -Force
+
+          "msix_path=$($msix.FullName)" >> $env:GITHUB_OUTPUT
+          "msix_name=$($msix.Name)" >> $env:GITHUB_OUTPUT
+          "artifact_dir=$artifactDir" >> $env:GITHUB_OUTPUT
+          "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PeopleCodeIDECompanion-msix
+          path: ${{ steps.collect.outputs.msix_path }}
+          if-no-files-found: error
+
+      - name: Upload certificate artifact
+        if: ${{ steps.collect.outputs.cer_path != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: PeopleCodeIDECompanion-certificate
+          path: ${{ steps.collect.outputs.cer_path }}
+          if-no-files-found: error
+
+      - name: Upload bundled package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PeopleCodeIDECompanion-package
+          path: ${{ steps.collect.outputs.zip_path }}
+          if-no-files-found: error
