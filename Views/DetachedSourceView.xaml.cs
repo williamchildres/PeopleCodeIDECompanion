@@ -53,6 +53,11 @@ public sealed partial class DetachedSourceView : UserControl
         ApplySourceFormatting();
     }
 
+    private void CopySourceButton_Click(object sender, RoutedEventArgs e)
+    {
+        ClipboardService.CopyText(_context.SourceText);
+    }
+
     private void PreviousSourceMatchButton_Click(object sender, RoutedEventArgs e)
     {
         NavigateCurrentSourceMatch(-1);

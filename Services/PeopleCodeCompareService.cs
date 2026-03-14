@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
@@ -34,7 +35,10 @@ public sealed class PeopleCodeCompareService
             throw new ArgumentException("A source identity is required.", nameof(request));
         }
 
-        PeopleCodeComparePaneViewModel leftPane = CreatePane(request.LeftSession, request.SourceDescriptor);
+        PeopleCodeComparePaneViewModel leftPane = CreatePane(
+            request.LeftSession,
+            request.SourceDescriptor,
+            request.LeftSourceText);
         SourceLoadOutcome rightSourceOutcome = await LoadSourceAsync(
             request.RightSession.Options,
             request.SourceDescriptor.Identity,
@@ -43,9 +47,12 @@ public sealed class PeopleCodeCompareService
         PeopleCodeComparePaneViewModel rightPane = CreatePane(
             request.RightSession,
             request.SourceDescriptor,
+            rightSourceOutcome.SourceText,
             rightSourceOutcome.StatusMessage);
 
         DiffBuildResult diffResult = BuildDiff(request.LeftSourceText ?? string.Empty, rightSourceOutcome.SourceText ?? string.Empty);
+        leftPane = CreatePaneWithDocument(leftPane, diffResult.LeftPaneDocument);
+        rightPane = CreatePaneWithDocument(rightPane, diffResult.RightPaneDocument);
         string title = string.IsNullOrWhiteSpace(request.SourceDescriptor.ObjectTitle)
             ? request.SourceDescriptor.Identity.ObjectType
             : request.SourceDescriptor.ObjectTitle;
@@ -64,13 +71,37 @@ public sealed class PeopleCodeCompareService
             DiffNotice = diffResult.Notice,
             LeftPane = leftPane,
             RightPane = rightPane,
+            DiffNavigationPoints = diffResult.NavigationPoints,
             DiffLines = diffResult.Lines
+        };
+    }
+
+    private static PeopleCodeComparePaneViewModel CreatePaneWithDocument(
+        PeopleCodeComparePaneViewModel pane,
+        PaneDocument document)
+    {
+        return new PeopleCodeComparePaneViewModel
+        {
+            ProfileDisplayName = pane.ProfileDisplayName,
+            ProfileContext = pane.ProfileContext,
+            ObjectType = pane.ObjectType,
+            ObjectTitle = pane.ObjectTitle,
+            ObjectSubtitle = pane.ObjectSubtitle,
+            MetadataSummary = pane.MetadataSummary,
+            SourceText = pane.SourceText,
+            DisplaySourceText = document.DisplaySourceText,
+            DisplayLineNumbers = document.DisplayLineNumbers,
+            AddedRanges = document.AddedRanges,
+            RemovedRanges = document.RemovedRanges,
+            ChangedRanges = document.ChangedRanges,
+            StatusMessage = pane.StatusMessage
         };
     }
 
     private static PeopleCodeComparePaneViewModel CreatePane(
         OracleConnectionSession session,
         PeopleCodeSourceDescriptor descriptor,
+        string sourceText,
         string? statusMessage = null)
     {
         return new PeopleCodeComparePaneViewModel
@@ -81,6 +112,7 @@ public sealed class PeopleCodeCompareService
             ObjectTitle = descriptor.ObjectTitle,
             ObjectSubtitle = descriptor.ObjectSubtitle,
             MetadataSummary = descriptor.MetadataSummary,
+            SourceText = sourceText ?? string.Empty,
             StatusMessage = statusMessage?.Trim() ?? string.Empty
         };
     }
@@ -207,6 +239,7 @@ public sealed class PeopleCodeCompareService
         int changedCount = 0;
         int addedCount = 0;
         int removedCount = 0;
+        List<DiffRow> rows = [];
 
         for (int index = 0; index < operations.Length; index++)
         {
@@ -216,7 +249,9 @@ public sealed class PeopleCodeCompareService
                 operations[index + 1].Kind == DiffOperationKind.Insert)
             {
                 DiffOperation next = operations[index + 1];
-                lines.Add(CreateLine(leftLineNumber++, current.Text, DiffLineSideKind.Changed, rightLineNumber++, next.Text, DiffLineSideKind.Changed));
+                DiffRow row = new(leftLineNumber++, current.Text, DiffLineSideKind.Changed, rightLineNumber++, next.Text, DiffLineSideKind.Changed);
+                rows.Add(row);
+                lines.Add(CreateLine(row));
                 changedCount++;
                 index++;
                 continue;
@@ -225,16 +260,28 @@ public sealed class PeopleCodeCompareService
             switch (current.Kind)
             {
                 case DiffOperationKind.Equal:
-                    lines.Add(CreateLine(leftLineNumber++, current.Text, DiffLineSideKind.Unchanged, rightLineNumber++, current.Text, DiffLineSideKind.Unchanged));
+                {
+                    DiffRow row = new(leftLineNumber++, current.Text, DiffLineSideKind.Unchanged, rightLineNumber++, current.Text, DiffLineSideKind.Unchanged);
+                    rows.Add(row);
+                    lines.Add(CreateLine(row));
                     break;
+                }
                 case DiffOperationKind.Delete:
-                    lines.Add(CreateLine(leftLineNumber++, current.Text, DiffLineSideKind.Removed, null, string.Empty, DiffLineSideKind.Empty));
+                {
+                    DiffRow row = new(leftLineNumber++, current.Text, DiffLineSideKind.Removed, null, string.Empty, DiffLineSideKind.Empty);
+                    rows.Add(row);
+                    lines.Add(CreateLine(row));
                     removedCount++;
                     break;
+                }
                 case DiffOperationKind.Insert:
-                    lines.Add(CreateLine(null, string.Empty, DiffLineSideKind.Empty, rightLineNumber++, current.Text, DiffLineSideKind.Added));
+                {
+                    DiffRow row = new(null, string.Empty, DiffLineSideKind.Empty, rightLineNumber++, current.Text, DiffLineSideKind.Added);
+                    rows.Add(row);
+                    lines.Add(CreateLine(row));
                     addedCount++;
                     break;
+                }
             }
         }
 
@@ -242,12 +289,18 @@ public sealed class PeopleCodeCompareService
         string notice = wasTruncated
             ? $"Diff is limited to the first {MaxDiffLinesPerSide} lines per side to keep compare responsive."
             : string.Empty;
+        PaneDocument leftPaneDocument = BuildPaneDocument(rows, isLeft: true);
+        PaneDocument rightPaneDocument = BuildPaneDocument(rows, isLeft: false);
+        IReadOnlyList<PeopleCodeCompareNavigationPoint> navigationPoints = BuildNavigationPoints(rows);
 
         return new DiffBuildResult
         {
             Lines = lines,
             Summary = summary,
-            Notice = notice
+            Notice = notice,
+            LeftPaneDocument = leftPaneDocument,
+            RightPaneDocument = rightPaneDocument,
+            NavigationPoints = navigationPoints
         };
     }
 
@@ -314,22 +367,216 @@ public sealed class PeopleCodeCompareService
         return operations.ToArray();
     }
 
-    private static PeopleCodeCompareDiffLineViewModel CreateLine(
-        int? leftLineNumber,
-        string leftText,
-        DiffLineSideKind leftKind,
-        int? rightLineNumber,
-        string rightText,
-        DiffLineSideKind rightKind)
+    private static PaneDocument BuildPaneDocument(IReadOnlyList<DiffRow> rows, bool isLeft)
+    {
+        StringBuilder sourceBuilder = new();
+        StringBuilder lineNumberBuilder = new();
+        List<CharacterRange> addedRanges = [];
+        List<CharacterRange> removedRanges = [];
+        List<CharacterRange> changedRanges = [];
+        int position = 0;
+
+        for (int index = 0; index < rows.Count; index++)
+        {
+            DiffRow row = rows[index];
+            string text = isLeft ? row.LeftText : row.RightText;
+            int? lineNumber = isLeft ? row.LeftLineNumber : row.RightLineNumber;
+            DiffLineSideKind kind = isLeft ? row.LeftKind : row.RightKind;
+            int start = position;
+
+            sourceBuilder.Append(text);
+            lineNumberBuilder.Append(lineNumber?.ToString() ?? string.Empty);
+            position += text.Length;
+
+            if (text.Length > 0)
+            {
+                CharacterRange range = new(start, text.Length);
+                switch (kind)
+                {
+                    case DiffLineSideKind.Added:
+                        addedRanges.Add(range);
+                        break;
+                    case DiffLineSideKind.Removed:
+                        removedRanges.Add(range);
+                        break;
+                    case DiffLineSideKind.Changed:
+                        changedRanges.Add(range);
+                        break;
+                }
+            }
+
+            if (index < rows.Count - 1)
+            {
+                sourceBuilder.Append('\n');
+                lineNumberBuilder.Append('\n');
+                position++;
+            }
+        }
+
+        return new PaneDocument
+        {
+            DisplaySourceText = sourceBuilder.ToString(),
+            DisplayLineNumbers = lineNumberBuilder.ToString(),
+            AddedRanges = addedRanges,
+            RemovedRanges = removedRanges,
+            ChangedRanges = changedRanges
+        };
+    }
+
+    private static IReadOnlyList<PeopleCodeCompareNavigationPoint> BuildNavigationPoints(IReadOnlyList<DiffRow> rows)
+    {
+        List<PeopleCodeCompareNavigationPoint> navigationPoints = [];
+        int leftPosition = 0;
+        int rightPosition = 0;
+        int blockStartLineIndex = -1;
+        int? leftBlockStart = null;
+        int? leftBlockEnd = null;
+        int? rightBlockStart = null;
+        int? rightBlockEnd = null;
+        DiffBlockSide activeBlockSide = DiffBlockSide.None;
+
+        for (int index = 0; index < rows.Count; index++)
+        {
+            DiffRow row = rows[index];
+            bool isDifferent = row.LeftKind != DiffLineSideKind.Unchanged || row.RightKind != DiffLineSideKind.Unchanged;
+            DiffBlockSide rowSide = GetBlockSide(row);
+            if (isDifferent)
+            {
+                if (blockStartLineIndex >= 0 &&
+                    ShouldSplitBlock(activeBlockSide, rowSide))
+                {
+                    navigationPoints.Add(CreateNavigationPoint(
+                        blockStartLineIndex,
+                        leftBlockStart,
+                        leftBlockEnd,
+                        rightBlockStart,
+                        rightBlockEnd));
+                    blockStartLineIndex = -1;
+                    leftBlockStart = null;
+                    leftBlockEnd = null;
+                    rightBlockStart = null;
+                    rightBlockEnd = null;
+                }
+
+                if (blockStartLineIndex < 0)
+                {
+                    blockStartLineIndex = index;
+                    activeBlockSide = rowSide;
+                }
+                else if (rowSide is DiffBlockSide.LeftOnly or DiffBlockSide.RightOnly)
+                {
+                    activeBlockSide = rowSide;
+                }
+
+                if (row.LeftText.Length > 0)
+                {
+                    leftBlockStart ??= leftPosition;
+                    leftBlockEnd = leftPosition + row.LeftText.Length;
+                }
+
+                if (row.RightText.Length > 0)
+                {
+                    rightBlockStart ??= rightPosition;
+                    rightBlockEnd = rightPosition + row.RightText.Length;
+                }
+            }
+            else if (blockStartLineIndex >= 0)
+            {
+                navigationPoints.Add(CreateNavigationPoint(
+                    blockStartLineIndex,
+                    leftBlockStart,
+                    leftBlockEnd,
+                    rightBlockStart,
+                    rightBlockEnd));
+                blockStartLineIndex = -1;
+                leftBlockStart = null;
+                leftBlockEnd = null;
+                rightBlockStart = null;
+                rightBlockEnd = null;
+                activeBlockSide = DiffBlockSide.None;
+            }
+
+            leftPosition += row.LeftText.Length;
+            rightPosition += row.RightText.Length;
+            if (index < rows.Count - 1)
+            {
+                leftPosition++;
+                rightPosition++;
+            }
+        }
+
+        if (blockStartLineIndex >= 0)
+        {
+            navigationPoints.Add(CreateNavigationPoint(
+                blockStartLineIndex,
+                leftBlockStart,
+                leftBlockEnd,
+                rightBlockStart,
+                rightBlockEnd));
+        }
+
+        return navigationPoints;
+    }
+
+    private static PeopleCodeCompareNavigationPoint CreateNavigationPoint(
+        int lineIndex,
+        int? leftBlockStart,
+        int? leftBlockEnd,
+        int? rightBlockStart,
+        int? rightBlockEnd)
+    {
+        return new PeopleCodeCompareNavigationPoint
+        {
+            LineIndex = lineIndex,
+            LeftRange = leftBlockStart.HasValue && leftBlockEnd.HasValue && leftBlockEnd.Value > leftBlockStart.Value
+                ? new CharacterRange(leftBlockStart.Value, leftBlockEnd.Value - leftBlockStart.Value)
+                : null,
+            RightRange = rightBlockStart.HasValue && rightBlockEnd.HasValue && rightBlockEnd.Value > rightBlockStart.Value
+                ? new CharacterRange(rightBlockStart.Value, rightBlockEnd.Value - rightBlockStart.Value)
+                : null
+        };
+    }
+
+    private static DiffBlockSide GetBlockSide(DiffRow row)
+    {
+        bool hasLeftDiff = HasDiffContent(row.LeftKind);
+        bool hasRightDiff = HasDiffContent(row.RightKind);
+
+        return (hasLeftDiff, hasRightDiff) switch
+        {
+            (true, false) => DiffBlockSide.LeftOnly,
+            (false, true) => DiffBlockSide.RightOnly,
+            (true, true) => DiffBlockSide.BothSides,
+            _ => DiffBlockSide.None
+        };
+    }
+
+    private static bool HasDiffContent(DiffLineSideKind kind)
+    {
+        return kind is DiffLineSideKind.Added or DiffLineSideKind.Removed or DiffLineSideKind.Changed;
+    }
+
+    private static bool ShouldSplitBlock(DiffBlockSide activeBlockSide, DiffBlockSide rowSide)
+    {
+        if (activeBlockSide is DiffBlockSide.None or DiffBlockSide.BothSides ||
+            rowSide is DiffBlockSide.None or DiffBlockSide.BothSides)
+        {
+            return false;
+        }
+
+        return activeBlockSide != rowSide;
+    }
+
+    private static PeopleCodeCompareDiffLineViewModel CreateLine(DiffRow row)
     {
         return new PeopleCodeCompareDiffLineViewModel
         {
-            LeftLineNumber = leftLineNumber,
-            LeftText = leftText,
-            LeftBackground = CreateBackground(leftKind),
-            RightLineNumber = rightLineNumber,
-            RightText = rightText,
-            RightBackground = CreateBackground(rightKind)
+            LeftLineNumber = row.LeftLineNumber,
+            LeftText = row.LeftText,
+            LeftBackground = CreateBackground(row.LeftKind),
+            RightLineNumber = row.RightLineNumber,
+            RightText = row.RightText,
+            RightBackground = CreateBackground(row.RightKind)
         };
     }
 
@@ -358,10 +605,38 @@ public sealed class PeopleCodeCompareService
         public IReadOnlyList<PeopleCodeCompareDiffLineViewModel> Lines { get; init; } =
             Array.Empty<PeopleCodeCompareDiffLineViewModel>();
 
+        public PaneDocument LeftPaneDocument { get; init; } = new();
+
+        public PaneDocument RightPaneDocument { get; init; } = new();
+
+        public IReadOnlyList<PeopleCodeCompareNavigationPoint> NavigationPoints { get; init; } =
+            Array.Empty<PeopleCodeCompareNavigationPoint>();
+
         public string Summary { get; init; } = string.Empty;
 
         public string Notice { get; init; } = string.Empty;
     }
+
+    private sealed class PaneDocument
+    {
+        public string DisplaySourceText { get; init; } = string.Empty;
+
+        public string DisplayLineNumbers { get; init; } = string.Empty;
+
+        public IReadOnlyList<CharacterRange> AddedRanges { get; init; } = Array.Empty<CharacterRange>();
+
+        public IReadOnlyList<CharacterRange> RemovedRanges { get; init; } = Array.Empty<CharacterRange>();
+
+        public IReadOnlyList<CharacterRange> ChangedRanges { get; init; } = Array.Empty<CharacterRange>();
+    }
+
+    private sealed record DiffRow(
+        int? LeftLineNumber,
+        string LeftText,
+        DiffLineSideKind LeftKind,
+        int? RightLineNumber,
+        string RightText,
+        DiffLineSideKind RightKind);
 
     private readonly record struct DiffOperation(DiffOperationKind Kind, string Text);
 
@@ -379,5 +654,13 @@ public sealed class PeopleCodeCompareService
         Removed,
         Changed,
         Empty
+    }
+
+    private enum DiffBlockSide
+    {
+        None,
+        LeftOnly,
+        RightOnly,
+        BothSides
     }
 }

@@ -35,10 +35,24 @@
                                TextWrapping="WrapWholeWords" />
                 </StackPanel>
 
-                <TextBlock Grid.Column="1"
-                           Text="Read-only compare"
-                           Style="{ThemeResource BodyStrongTextBlockStyle}"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            VerticalAlignment="Top">
+                    <TextBlock x:Name="DiffNavigationStatusTextBlock"
+                               VerticalAlignment="Center"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Button x:Name="PreviousDiffButton"
+                            Content="Previous Diff"
+                            Click="PreviousDiffButton_Click" />
+                    <Button x:Name="NextDiffButton"
+                            Content="Next Diff"
+                            Click="NextDiffButton_Click" />
+                    <TextBlock Text="Read-only compare"
+                               VerticalAlignment="Center"
+                               Style="{ThemeResource BodyStrongTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
             </Grid>
 
             <InfoBar IsClosable="False"
@@ -48,7 +62,7 @@
         </StackPanel>
 
         <Grid Grid.Row="1"
-              ColumnSpacing="16">
+              ColumnSpacing="20">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
@@ -58,24 +72,31 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
-                    Padding="12">
-                <StackPanel Spacing="6">
-                    <TextBlock Text="{x:Bind ViewModel.LeftPane.ProfileDisplayName}"
-                               Style="{ThemeResource BodyStrongTextBlockStyle}"
-                               TextWrapping="WrapWholeWords" />
-                    <TextBlock Text="{x:Bind ViewModel.LeftPane.ProfileContext}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               TextWrapping="WrapWholeWords" />
-                    <TextBlock Text="{x:Bind ViewModel.LeftPane.ObjectType}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="{x:Bind ViewModel.LeftPane.ObjectTitle}"
-                               TextWrapping="WrapWholeWords" />
-                    <TextBlock Text="{x:Bind ViewModel.LeftPane.ObjectSubtitle}"
-                               TextWrapping="WrapWholeWords"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="{x:Bind ViewModel.LeftPane.MetadataSummary}"
-                               TextWrapping="WrapWholeWords" />
-                </StackPanel>
+                    Padding="12,12,18,12">
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="56" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="1"
+                                Spacing="6">
+                        <TextBlock Text="{x:Bind ViewModel.LeftPane.ProfileDisplayName}"
+                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                   TextWrapping="WrapWholeWords" />
+                        <TextBlock Text="{x:Bind ViewModel.LeftPane.ProfileContext}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="WrapWholeWords" />
+                        <TextBlock Text="{x:Bind ViewModel.LeftPane.ObjectType}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="{x:Bind ViewModel.LeftPane.ObjectTitle}"
+                                   TextWrapping="WrapWholeWords" />
+                        <TextBlock Text="{x:Bind ViewModel.LeftPane.ObjectSubtitle}"
+                                   TextWrapping="WrapWholeWords"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="{x:Bind ViewModel.LeftPane.MetadataSummary}"
+                                   TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+                </Grid>
             </Border>
 
             <Border Grid.Column="1"
@@ -83,92 +104,151 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
-                    Padding="12">
-                <StackPanel Spacing="6">
-                    <TextBlock Text="{x:Bind ViewModel.RightPane.ProfileDisplayName}"
-                               Style="{ThemeResource BodyStrongTextBlockStyle}"
-                               TextWrapping="WrapWholeWords" />
-                    <TextBlock Text="{x:Bind ViewModel.RightPane.ProfileContext}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               TextWrapping="WrapWholeWords" />
-                    <TextBlock Text="{x:Bind ViewModel.RightPane.ObjectType}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="{x:Bind ViewModel.RightPane.ObjectTitle}"
-                               TextWrapping="WrapWholeWords" />
-                    <TextBlock Text="{x:Bind ViewModel.RightPane.ObjectSubtitle}"
-                               TextWrapping="WrapWholeWords"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="{x:Bind ViewModel.RightPane.MetadataSummary}"
-                               TextWrapping="WrapWholeWords" />
-                    <InfoBar IsClosable="False"
-                             IsOpen="{x:Bind ViewModel.RightPane.HasStatusMessage, Mode=OneTime}"
-                             Severity="Warning"
-                             Message="{x:Bind ViewModel.RightPane.StatusMessage, Mode=OneTime}" />
-                </StackPanel>
+                    Padding="18,12,12,12">
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="56" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="1"
+                                Spacing="6">
+                        <TextBlock Text="{x:Bind ViewModel.RightPane.ProfileDisplayName}"
+                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                   TextWrapping="WrapWholeWords" />
+                        <TextBlock Text="{x:Bind ViewModel.RightPane.ProfileContext}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="WrapWholeWords" />
+                        <TextBlock Text="{x:Bind ViewModel.RightPane.ObjectType}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="{x:Bind ViewModel.RightPane.ObjectTitle}"
+                                   TextWrapping="WrapWholeWords" />
+                        <TextBlock Text="{x:Bind ViewModel.RightPane.ObjectSubtitle}"
+                                   TextWrapping="WrapWholeWords"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="{x:Bind ViewModel.RightPane.MetadataSummary}"
+                                   TextWrapping="WrapWholeWords" />
+                        <InfoBar IsClosable="False"
+                                 IsOpen="{x:Bind ViewModel.RightPane.HasStatusMessage, Mode=OneTime}"
+                                 Severity="Warning"
+                                 Message="{x:Bind ViewModel.RightPane.StatusMessage, Mode=OneTime}" />
+                    </StackPanel>
+                </Grid>
             </Border>
         </Grid>
 
-        <Border Grid.Row="2"
-                Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Padding="12">
-            <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{x:Bind ViewModel.DiffLines}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="models:PeopleCodeCompareDiffLineViewModel">
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="16" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
+        <Grid Grid.Row="2"
+              ColumnSpacing="20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-                                <TextBlock Grid.Column="0"
-                                           Width="56"
-                                           HorizontalTextAlignment="Right"
-                                           VerticalAlignment="Top"
-                                           Text="{x:Bind LeftLineNumber, Mode=OneTime}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                           FontFamily="Consolas" />
+            <Border Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12,12,18,12">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
-                                <Border Grid.Column="1"
-                                        Background="{x:Bind LeftBackground, Mode=OneTime}"
-                                        Padding="4,2">
-                                    <TextBlock Text="{x:Bind LeftText, Mode=OneTime}"
-                                               FontFamily="Consolas"
-                                               TextWrapping="NoWrap" />
-                                </Border>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                                <Border Grid.Column="2"
-                                        Background="{ThemeResource CardStrokeColorDefaultBrush}"
-                                        Width="1"
-                                        HorizontalAlignment="Center" />
+                        <TextBlock Text="PeopleCode Source"
+                                   Style="{ThemeResource SubtitleTextBlockStyle}" />
 
-                                <TextBlock Grid.Column="3"
-                                           Width="56"
-                                           HorizontalTextAlignment="Right"
-                                           VerticalAlignment="Top"
-                                           Text="{x:Bind RightLineNumber, Mode=OneTime}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                           FontFamily="Consolas" />
+                        <Button Grid.Column="1"
+                                Content="Copy"
+                                Click="CopyLeftButton_Click" />
+                    </Grid>
 
-                                <Border Grid.Column="4"
-                                        Background="{x:Bind RightBackground, Mode=OneTime}"
-                                        Padding="4,2">
-                                    <TextBlock Text="{x:Bind RightText, Mode=OneTime}"
-                                               FontFamily="Consolas"
-                                               TextWrapping="NoWrap" />
-                                </Border>
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
-        </Border>
+                    <ScrollViewer Grid.Row="1"
+                                  x:Name="LeftSourceScrollViewer"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  ViewChanged="LeftSourceScrollViewer_ViewChanged">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock x:Name="LeftLineNumbersTextBlock"
+                                       Grid.Column="0"
+                                       FontFamily="Consolas"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextAlignment="Right"
+                                       TextWrapping="NoWrap" />
+
+                            <RichTextBlock x:Name="LeftSourceRichTextBlock"
+                                           Grid.Column="1"
+                                           FontFamily="Consolas"
+                                           IsTextSelectionEnabled="True"
+                                           TextWrapping="NoWrap" />
+                        </Grid>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="18,12,12,12">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="PeopleCode Source"
+                                   Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                        <Button Grid.Column="1"
+                                Content="Copy"
+                                Click="CopyRightButton_Click" />
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="1"
+                                  x:Name="RightSourceScrollViewer"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  ViewChanged="RightSourceScrollViewer_ViewChanged">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock x:Name="RightLineNumbersTextBlock"
+                                       Grid.Column="0"
+                                       FontFamily="Consolas"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextAlignment="Right"
+                                       TextWrapping="NoWrap" />
+
+                            <RichTextBlock x:Name="RightSourceRichTextBlock"
+                                           Grid.Column="1"
+                                           FontFamily="Consolas"
+                                           IsTextSelectionEnabled="True"
+                                           TextWrapping="NoWrap" />
+                        </Grid>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

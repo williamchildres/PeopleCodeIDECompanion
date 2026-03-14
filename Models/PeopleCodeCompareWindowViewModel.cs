@@ -20,6 +20,11 @@ public sealed class PeopleCodeCompareWindowViewModel
 
     public PeopleCodeComparePaneViewModel RightPane { get; init; } = new();
 
+    public IReadOnlyList<PeopleCodeCompareNavigationPoint> DiffNavigationPoints { get; init; } =
+        System.Array.Empty<PeopleCodeCompareNavigationPoint>();
+
+    public int DiffCount => DiffNavigationPoints.Count;
+
     public IReadOnlyList<PeopleCodeCompareDiffLineViewModel> DiffLines { get; init; } =
         System.Array.Empty<PeopleCodeCompareDiffLineViewModel>();
 }
