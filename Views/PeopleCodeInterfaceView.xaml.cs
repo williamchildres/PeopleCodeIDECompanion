@@ -1,16 +1,19 @@
 using Microsoft.UI.Xaml.Controls;
 using PeopleCodeIDECompanion.Models;
+using PeopleCodeIDECompanion.Services;
 
 namespace PeopleCodeIDECompanion.Views;
 
 public sealed partial class PeopleCodeInterfaceView : UserControl
 {
-    private const string AppPackageMode = "App Package";
-    private const string AppEngineMode = "App Engine";
-    private const string RecordMode = "Record";
-    private const string PageMode = "Page";
-    private const string ComponentMode = "Component";
+    private const string AllObjectsMode = AllObjectsPeopleCodeBrowserService.AllObjectsMode;
+    private const string AppPackageMode = AllObjectsPeopleCodeBrowserService.AppPackageMode;
+    private const string AppEngineMode = AllObjectsPeopleCodeBrowserService.AppEngineMode;
+    private const string RecordMode = AllObjectsPeopleCodeBrowserService.RecordMode;
+    private const string PageMode = AllObjectsPeopleCodeBrowserService.PageMode;
+    private const string ComponentMode = AllObjectsPeopleCodeBrowserService.ComponentMode;
 
+    private readonly AllObjectsPeopleCodeBrowserView _allObjectsView = new();
     private readonly AppEnginePlaceholderView _appEngineView = new();
     private readonly AppPackageBrowserView _appPackageView = new();
     private readonly RecordPeopleCodeBrowserView _recordView = new();
@@ -26,6 +29,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
 
     public void SetSession(OracleConnectionSession session)
     {
+        _allObjectsView.SetSession(session);
         _appPackageView.SetSession(session);
         _appEngineView.SetSession(session);
         _recordView.SetSession(session);
@@ -38,6 +42,13 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         SetSelectedMode(AppPackageMode);
         ModeSummaryTextBlock.Text = "Browse App Package classes and search App Package PeopleCode with the current read-only tools.";
         ModeContentHost.Content = _appPackageView;
+    }
+
+    public void ShowAllObjects()
+    {
+        SetSelectedMode(AllObjectsMode);
+        ModeSummaryTextBlock.Text = "Search across all supported read-only PeopleCode object types from one workspace, then inspect grouped matches, metadata, and source without browsing the full corpus.";
+        ModeContentHost.Content = _allObjectsView;
     }
 
     public void ShowAppEngine()
@@ -77,6 +88,9 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
 
         switch (ObjectTypeComboBox.SelectedItem as string)
         {
+            case AllObjectsMode:
+                ShowAllObjects();
+                return;
             case AppEngineMode:
                 ShowAppEngine();
                 return;

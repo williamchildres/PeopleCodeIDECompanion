@@ -38,6 +38,7 @@
                 <ComboBox x:Name="ObjectTypeComboBox"
                           Width="180"
                           SelectionChanged="ObjectTypeComboBox_SelectionChanged">
+                    <x:String>All Objects</x:String>
                     <x:String>App Package</x:String>
                     <x:String>App Engine</x:String>
                     <x:String>Record</x:String>
