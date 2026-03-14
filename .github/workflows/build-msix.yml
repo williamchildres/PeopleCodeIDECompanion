@@ -27,12 +27,38 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore $env:PROJECT_PATH
 
+      - name: Create CI test-signing certificate
+        id: signing
+        shell: pwsh
+        run: |
+          # The manifest publisher is CN=PeopleCodeIDECompanion, so the signing certificate
+          # must use the same subject for Windows to trust the package after import.
+          $cert = New-SelfSignedCertificate `
+            -Type Custom `
+            -Subject 'CN=PeopleCodeIDECompanion' `
+            -KeyUsage DigitalSignature `
+            -FriendlyName 'PeopleCodeIDECompanion CI Test Certificate' `
+            -CertStoreLocation 'Cert:\CurrentUser\My' `
+            -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3')
+
+          if (-not $cert) {
+            throw 'Failed to create the CI test-signing certificate.'
+          }
+
+          $cerPath = Join-Path $env:RUNNER_TEMP 'PeopleCodeIDECompanion.cer'
+          Export-Certificate -Cert $cert -FilePath $cerPath | Out-Null
+
+          "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
+          "cer_path=$cerPath" >> $env:GITHUB_OUTPUT
+
       - name: Build and package MSIX
         run: >
           dotnet build $env:PROJECT_PATH
           -c $env:CONFIGURATION
           -p:Platform=$env:PLATFORM
           -p:GenerateAppxPackageOnBuild=true
+          -p:AppxPackageSigningEnabled=true
+          -p:PackageCertificateThumbprint=${{ steps.signing.outputs.thumbprint }}
 
       - name: Collect packaged outputs
         id: collect
@@ -49,6 +75,11 @@ jobs:
             throw 'No .msix package was found under AppPackages.'
           }
 
+          $signature = Get-AuthenticodeSignature $msix.FullName
+          if ($signature.Status -eq 'NotSigned') {
+            throw 'The generated .msix is not digitally signed.'
+          }
+
           $artifactDir = Join-Path $env:RUNNER_TEMP 'msix-artifacts'
           $bundleDir = Join-Path $artifactDir 'bundle'
           New-Item -ItemType Directory -Force -Path $artifactDir, $bundleDir | Out-Null
@@ -56,22 +87,32 @@ jobs:
           Copy-Item -Path $msix.FullName -Destination $artifactDir
           Copy-Item -Path $msix.FullName -Destination $bundleDir
 
-          # Prefer a certificate in the same package folder, but fall back to any nearby
-          # AppPackages certificate so versioned output folder names do not have to match exactly.
-          $certificateCandidates = @()
+          $certificate = $null
 
-          foreach ($candidate in $msixCandidates) {
-            $certificateCandidates += Get-ChildItem -Path $candidate.DirectoryName -File -Filter '*.cer' -ErrorAction SilentlyContinue
+          if ('${{ steps.signing.outputs.cer_path }}') {
+            $generatedCertificate = '${{ steps.signing.outputs.cer_path }}'
+            if (Test-Path $generatedCertificate) {
+              $certificate = Get-Item $generatedCertificate
+            }
           }
 
-          if (-not $certificateCandidates) {
-            $certificateCandidates = Get-ChildItem -Path 'AppPackages' -Recurse -File -Filter '*.cer' -ErrorAction SilentlyContinue
-          }
+          # Fall back to any AppPackages certificate if export somehow failed.
+          if (-not $certificate) {
+            $certificateCandidates = @()
 
-          $certificate = $certificateCandidates |
-            Sort-Object LastWriteTimeUtc -Descending |
-            Select-Object -Unique FullName |
-            Select-Object -First 1
+            foreach ($candidate in $msixCandidates) {
+              $certificateCandidates += Get-ChildItem -Path $candidate.DirectoryName -File -Filter '*.cer' -ErrorAction SilentlyContinue
+            }
+
+            if (-not $certificateCandidates) {
+              $certificateCandidates = Get-ChildItem -Path 'AppPackages' -Recurse -File -Filter '*.cer' -ErrorAction SilentlyContinue
+            }
+
+            $certificate = $certificateCandidates |
+              Sort-Object LastWriteTimeUtc -Descending |
+              Select-Object -Unique FullName |
+              Select-Object -First 1
+          }
 
           if ($certificate) {
             Copy-Item -Path $certificate.FullName -Destination $artifactDir
@@ -80,9 +121,7 @@ jobs:
             "cer_name=$($certificate.Name)" >> $env:GITHUB_OUTPUT
           }
           else {
-            Write-Warning 'No .cer certificate was found under AppPackages. This package is expected to be test-signed, so another Windows PC may not be able to trust/install the MSIX without the matching certificate.'
-            "cer_path=" >> $env:GITHUB_OUTPUT
-            "cer_name=" >> $env:GITHUB_OUTPUT
+            throw 'No .cer certificate was found for this signed build. Another Windows PC needs the matching certificate to trust and install the MSIX.'
           }
 
           @"
