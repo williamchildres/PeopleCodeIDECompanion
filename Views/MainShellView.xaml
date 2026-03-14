@@ -28,6 +28,13 @@
                         <SymbolIcon Symbol="Document" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem x:Name="PeopleCodeOverviewNavigationItem"
+                                    Content="PeopleCode Overview"
+                                    Tag="PeopleCodeOverview">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="PreviewLink" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem x:Name="ReferenceExplorerNavigationItem"
                                     Content="Reference Explorer"
                                     Tag="ReferenceExplorer">

@@ -97,6 +97,37 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
 
     public void ShowComponent() => ShowMode(ComponentMode);
 
+    public async Task<bool> OpenItemAsync(string profileId, string objectType, object? sourceKey)
+    {
+        if (sourceKey is null)
+        {
+            return false;
+        }
+
+        _sessionManager.SelectSession(profileId);
+        ProfileWorkspace? workspace = ActiveWorkspace;
+        if (workspace is null)
+        {
+            return false;
+        }
+
+        string mode = objectType switch
+        {
+            AllObjectsPeopleCodeBrowserService.AppPackageMode => AppPackageMode,
+            AllObjectsPeopleCodeBrowserService.AppEngineMode => AppEngineMode,
+            AllObjectsPeopleCodeBrowserService.RecordMode => RecordMode,
+            AllObjectsPeopleCodeBrowserService.PageMode => PageMode,
+            AllObjectsPeopleCodeBrowserService.ComponentMode => ComponentMode,
+            _ => AllObjectsMode
+        };
+
+        workspace.CurrentMode = mode;
+        SetSelectedMode(mode);
+        ModeSummaryTextBlock.Text = GetModeSummary(mode);
+        ModeContentHost.Content = workspace.GetContentForMode(mode);
+        return await workspace.OpenItemAsync(mode, sourceKey);
+    }
+
     private ProfileWorkspace? ActiveWorkspace =>
         _sessionManager.SelectedSession is null
             ? null
@@ -363,6 +394,19 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
             RecordView.SetSession(session);
             PageView.SetSession(session);
             ComponentView.SetSession(session);
+        }
+
+        public Task<bool> OpenItemAsync(string mode, object sourceKey)
+        {
+            return mode switch
+            {
+                AppPackageMode when sourceKey is AppPackageEntry entry => AppPackageView.OpenEntryAsync(entry),
+                AppEngineMode when sourceKey is AppEngineItem item => AppEngineView.OpenItemAsync(item),
+                RecordMode when sourceKey is RecordPeopleCodeItem item => RecordView.OpenItemAsync(item),
+                PageMode when sourceKey is PagePeopleCodeItem item => PageView.OpenItemAsync(item),
+                ComponentMode when sourceKey is ComponentPeopleCodeItem item => ComponentView.OpenItemAsync(item),
+                _ => Task.FromResult(false)
+            };
         }
     }
 }

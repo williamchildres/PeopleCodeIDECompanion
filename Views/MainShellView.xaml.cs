@@ -18,6 +18,7 @@ public sealed partial class MainShellView : UserControl
     private readonly SecureCredentialStore _secureCredentialStore = new();
     private readonly OracleConnectionTester _connectionTester = new();
     private readonly PeopleCodeInterfaceView _peopleCodeInterfaceView;
+    private readonly PeopleCodeOverviewView _peopleCodeOverviewView;
     private readonly OracleConnectionView _oracleConnectionView;
     private readonly ReferenceExplorerView _referenceExplorerView = new();
     private readonly long _isPaneOpenCallbackToken;
@@ -29,11 +30,13 @@ public sealed partial class MainShellView : UserControl
         InitializeComponent();
 
         _peopleCodeInterfaceView = new PeopleCodeInterfaceView(_sessionManager);
+        _peopleCodeOverviewView = new PeopleCodeOverviewView(_sessionManager);
         _oracleConnectionView = new OracleConnectionView();
         _oracleConnectionView.BrowserRequested += OracleConnectionView_BrowserRequested;
         _oracleConnectionView.ProfileSaved += OracleConnectionView_ProfileSaved;
         _oracleConnectionView.ProfileDeleted += OracleConnectionView_ProfileDeleted;
         _peopleCodeInterfaceView.ActiveWorkspaceChanged += PeopleCodeInterfaceView_ActiveWorkspaceChanged;
+        _peopleCodeOverviewView.NavigateToPeopleCodeObjectRequested += PeopleCodeOverviewView_NavigateToPeopleCodeObjectRequested;
         BuildObjectStatusPanel();
 
         _isPaneOpenCallbackToken = AppNavigationView.RegisterPropertyChangedCallback(
@@ -319,6 +322,7 @@ public sealed partial class MainShellView : UserControl
         {
             "OracleConnection" => _oracleConnectionView,
             "PeopleCodeInterface" => _peopleCodeInterfaceView,
+            "PeopleCodeOverview" => _peopleCodeOverviewView,
             "ReferenceExplorer" => _referenceExplorerView,
             _ => _referenceExplorerView
         };
@@ -328,6 +332,17 @@ public sealed partial class MainShellView : UserControl
     {
         NavigateTo("PeopleCodeInterface");
         AppNavigationView.SelectedItem = PeopleCodeInterfaceNavigationItem;
+    }
+
+    private async void PeopleCodeOverviewView_NavigateToPeopleCodeObjectRequested(
+        object? sender,
+        PeopleCodeObjectNavigationRequest e)
+    {
+        bool opened = await _peopleCodeInterfaceView.OpenItemAsync(e.ProfileId, e.ObjectType, e.SourceKey);
+        if (opened)
+        {
+            NavigateToPeopleCodeInterface();
+        }
     }
 
     private static void UpdateCompactStatusButton(Button button, PeopleCodeObjectStatusItem status)
@@ -452,6 +467,7 @@ public sealed partial class MainShellView : UserControl
         _oracleConnectionView.ProfileSaved -= OracleConnectionView_ProfileSaved;
         _oracleConnectionView.ProfileDeleted -= OracleConnectionView_ProfileDeleted;
         _peopleCodeInterfaceView.ActiveWorkspaceChanged -= PeopleCodeInterfaceView_ActiveWorkspaceChanged;
+        _peopleCodeOverviewView.NavigateToPeopleCodeObjectRequested -= PeopleCodeOverviewView_NavigateToPeopleCodeObjectRequested;
         Unloaded -= MainShellView_Unloaded;
     }
 }

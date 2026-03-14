@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="PeopleCodeIDECompanion.Views.PeopleCodeOverviewView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Padding="24"
+          RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="PeopleCode Overview"
+                           Style="{ThemeResource TitleTextBlockStyle}" />
+                <TextBlock x:Name="ActiveProfileSummaryTextBlock"
+                           Style="{ThemeResource BodyStrongTextBlockStyle}"
+                           TextWrapping="WrapWholeWords" />
+                <TextBlock x:Name="SummaryTextBlock"
+                           Style="{ThemeResource CaptionTextBlockStyle}"
+                           TextWrapping="WrapWholeWords"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1"
+                        Spacing="4"
+                        HorizontalAlignment="Right">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Database profile"
+                                   Style="{ThemeResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <ComboBox x:Name="ProfileComboBox"
+                                  Width="220"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectionChanged="ProfileComboBox_SelectionChanged" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1"
+                                Spacing="4">
+                        <TextBlock Text="Lookback"
+                                   Style="{ThemeResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <ComboBox x:Name="LookbackComboBox"
+                                  Width="140"
+                                  SelectionChanged="LookbackComboBox_SelectionChanged">
+                            <ComboBoxItem Content="7 days" Tag="7" />
+                            <ComboBoxItem Content="14 days" Tag="14" />
+                            <ComboBoxItem Content="30 days" Tag="30" />
+                            <ComboBoxItem Content="60 days" Tag="60" />
+                        </ComboBox>
+                    </StackPanel>
+
+                    <Button x:Name="RefreshButton"
+                            Grid.Column="2"
+                            VerticalAlignment="Bottom"
+                            Content="Refresh"
+                            Click="RefreshButton_Click" />
+
+                    <Button x:Name="RepeatedCodeSearchButton"
+                            Grid.Column="3"
+                            VerticalAlignment="Bottom"
+                            Content="Repeated Code Search"
+                            Click="RepeatedCodeSearchButton_Click" />
+                </Grid>
+            </StackPanel>
+        </Grid>
+
+        <InfoBar Grid.Row="1"
+                 x:Name="HeaderInfoBar"
+                 IsOpen="False"
+                 IsClosable="True"
+                 Severity="Warning" />
+
+        <Grid Grid.Row="2"
+              ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="3*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Recently Updated PeopleCode Objects"
+                               Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                    <TextBlock x:Name="RecentObjectsStatusTextBlock"
+                               Grid.Row="1"
+                               Visibility="Collapsed"
+                               TextWrapping="WrapWholeWords"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                    <ListView x:Name="RecentObjectsListView"
+                              Grid.Row="2"
+                              IsItemClickEnabled="True"
+                              ItemClick="RecentObjectsListView_ItemClick"
+                              SelectionMode="None"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Padding="8"
+                                            Spacing="4">
+                                    <TextBlock Text="{Binding Title}"
+                                               Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                               TextWrapping="WrapWholeWords" />
+                                    <TextBlock Text="{Binding Subtitle}"
+                                               TextWrapping="WrapWholeWords"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="{Binding LastUpdatedDisplay}"
+                                               TextWrapping="WrapWholeWords"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Recently Active OPRIDs"
+                               Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                    <TextBlock x:Name="OpridStatusTextBlock"
+                               Grid.Row="1"
+                               Visibility="Collapsed"
+                               TextWrapping="WrapWholeWords"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                    <ListView x:Name="OpridsListView"
+                              Grid.Row="2"
+                              SelectionChanged="OpridsListView_SelectionChanged"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Padding="8"
+                                            Spacing="4">
+                                    <TextBlock Text="{Binding Oprid}"
+                                               Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock Text="{Binding Subtitle}"
+                                               TextWrapping="WrapWholeWords"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="2"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock x:Name="DetailTitleTextBlock"
+                               Text="OPRID Detail"
+                               Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                    <TextBlock x:Name="DetailStatusTextBlock"
+                               Grid.Row="1"
+                               Visibility="Collapsed"
+                               TextWrapping="WrapWholeWords"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                    <ListView x:Name="DetailItemsListView"
+                              Grid.Row="2"
+                              IsItemClickEnabled="True"
+                              ItemClick="DetailItemsListView_ItemClick"
+                              SelectionMode="None"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Padding="8"
+                                            Spacing="4">
+                                    <TextBlock Text="{Binding Title}"
+                                               Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                               TextWrapping="WrapWholeWords" />
+                                    <TextBlock Text="{Binding Subtitle}"
+                                               TextWrapping="WrapWholeWords"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="{Binding LastUpdatedDisplay}"
+                                               TextWrapping="WrapWholeWords"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <TextBlock x:Name="RepeatedResultsHeaderTextBlock"
+                               Grid.Row="3"
+                               Visibility="Collapsed"
+                               Text="Repeated Code Blocks"
+                               Style="{ThemeResource BodyStrongTextBlockStyle}" />
+
+                    <Grid Grid.Row="4"
+                          x:Name="RepeatedCodePanel"
+                          Visibility="Collapsed"
+                          RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <ListView x:Name="RepeatedBlocksListView"
+                                  SelectionChanged="RepeatedBlocksListView_SelectionChanged"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Padding="8"
+                                                Spacing="4">
+                                        <TextBlock Text="{Binding SnippetPreview}"
+                                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                                   TextWrapping="WrapWholeWords"
+                                                   MaxLines="4" />
+                                        <TextBlock Text="{Binding Summary}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+
+                        <ListView x:Name="RepeatedOccurrencesListView"
+                                  Grid.Row="1"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="RepeatedOccurrencesListView_ItemClick"
+                                  SelectionMode="None"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Padding="8"
+                                                Spacing="4">
+                                        <TextBlock Text="{Binding Location.Title}"
+                                                   Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                                   TextWrapping="WrapWholeWords" />
+                                        <TextBlock Text="{Binding Subtitle}"
+                                                   TextWrapping="WrapWholeWords"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{Binding Location.LastUpdatedDisplay}"
+                                                   TextWrapping="WrapWholeWords"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

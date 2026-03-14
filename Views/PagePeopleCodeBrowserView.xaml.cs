@@ -65,6 +65,41 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
         return LoadItemsAsync();
     }
 
+    public async Task<bool> OpenItemAsync(PagePeopleCodeItem item)
+    {
+        if (_session is null)
+        {
+            return false;
+        }
+
+        if (_allItems.Count == 0)
+        {
+            await LoadItemsAsync();
+        }
+
+        if (_isGlobalSearchMode)
+        {
+            ClearGlobalSearchMode();
+        }
+
+        PagePeopleCodeItem? match = _allItems.FirstOrDefault(candidate => ItemsMatch(candidate, item));
+        if (match is null)
+        {
+            return false;
+        }
+
+        PagesListView.SelectedItem = _filteredPages.FirstOrDefault(page =>
+            page.Equals(match.PageName, StringComparison.OrdinalIgnoreCase));
+        ApplyItemFilter();
+        ItemsListView.SelectedItem = _filteredItems.FirstOrDefault(candidate => ItemsMatch(candidate, match));
+        if (ItemsListView.SelectedItem is not null)
+        {
+            ItemsListView.ScrollIntoView(ItemsListView.SelectedItem);
+        }
+
+        return ItemsListView.SelectedItem is not null;
+    }
+
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
     {
         await LoadItemsAsync();

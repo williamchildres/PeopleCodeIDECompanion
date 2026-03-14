@@ -65,6 +65,41 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         return LoadItemsAsync();
     }
 
+    public async Task<bool> OpenItemAsync(AppEngineItem item)
+    {
+        if (_session is null)
+        {
+            return false;
+        }
+
+        if (_allItems.Count == 0)
+        {
+            await LoadItemsAsync();
+        }
+
+        if (_isGlobalSearchMode)
+        {
+            ClearGlobalSearchMode();
+        }
+
+        AppEngineItem? match = _allItems.FirstOrDefault(candidate => ItemsMatch(candidate, item));
+        if (match is null)
+        {
+            return false;
+        }
+
+        ProgramsListView.SelectedItem = _filteredPrograms.FirstOrDefault(program =>
+            program.Equals(match.ProgramName, StringComparison.OrdinalIgnoreCase));
+        ApplyItemFilter();
+        ItemsListView.SelectedItem = _filteredItems.FirstOrDefault(candidate => ItemsMatch(candidate, match));
+        if (ItemsListView.SelectedItem is not null)
+        {
+            ItemsListView.ScrollIntoView(ItemsListView.SelectedItem);
+        }
+
+        return ItemsListView.SelectedItem is not null;
+    }
+
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
     {
         await LoadItemsAsync();

@@ -225,6 +225,42 @@ public sealed class AppPackageBrowserView : UserControl
         return LoadEntriesAsync();
     }
 
+    public async Task<bool> OpenEntryAsync(AppPackageEntry entry)
+    {
+        if (_session is null)
+        {
+            return false;
+        }
+
+        if (_allEntries.Count == 0)
+        {
+            await LoadEntriesAsync();
+        }
+
+        if (_isGlobalSearchMode)
+        {
+            ClearGlobalSearchMode();
+        }
+
+        AppPackageEntry? match = _allEntries.FirstOrDefault(candidate => EntriesMatch(candidate, entry));
+        if (match is null)
+        {
+            return false;
+        }
+
+        string packageRoot = match.PackageRoot;
+        _packageRootsListView.SelectedItem = _filteredPackageRoots.FirstOrDefault(root =>
+            root.Equals(packageRoot, StringComparison.OrdinalIgnoreCase));
+        ApplyEntryFilter();
+        _entriesListView.SelectedItem = _filteredEntries.FirstOrDefault(candidate => EntriesMatch(candidate, match));
+        if (_entriesListView.SelectedItem is not null)
+        {
+            _entriesListView.ScrollIntoView(_entriesListView.SelectedItem);
+        }
+
+        return _entriesListView.SelectedItem is not null;
+    }
+
     private UIElement BuildLayout()
     {
         Grid root = new()
