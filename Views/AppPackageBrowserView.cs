@@ -11,6 +11,7 @@ using Microsoft.UI.Xaml.Markup;
 using Microsoft.UI.Xaml.Media;
 using PeopleCodeIDECompanion.Models;
 using PeopleCodeIDECompanion.Services;
+using Windows.Foundation;
 using Windows.System;
 
 namespace PeopleCodeIDECompanion.Views;
@@ -44,7 +45,11 @@ public sealed class AppPackageBrowserView : UserControl
     private readonly TextBlock _selectedEntryTitleTextBlock;
     private readonly TextBlock _selectedEntryTypeTextBlock;
     private readonly TextBlock _metadataSummaryTextBlock;
+    private readonly Button _previousSourceMatchButton;
+    private readonly Button _nextSourceMatchButton;
+    private readonly TextBlock _sourceMatchStatusTextBlock;
     private readonly RichTextBlock _sourceRichTextBlock;
+    private readonly ScrollViewer _sourceScrollViewer;
 
     private OracleConnectionSession? _session;
     private AppPackageEntry? _selectedEntry;
@@ -54,6 +59,8 @@ public sealed class AppPackageBrowserView : UserControl
     private string _activeGlobalSearchText = string.Empty;
     private string _currentSourceText = string.Empty;
     private bool _currentSourceUsesSyntaxHighlighting;
+    private IReadOnlyList<TextRange> _currentSourceMatchRanges = Array.Empty<TextRange>();
+    private int _activeSourceMatchIndex = -1;
 
     public AppPackageBrowserView()
     {
@@ -160,6 +167,26 @@ public sealed class AppPackageBrowserView : UserControl
             TextWrapping = TextWrapping.WrapWholeWords
         };
 
+        _previousSourceMatchButton = new Button
+        {
+            Content = "Previous Match",
+            IsEnabled = false
+        };
+        _previousSourceMatchButton.Click += PreviousSourceMatchButton_Click;
+
+        _nextSourceMatchButton = new Button
+        {
+            Content = "Next Match",
+            IsEnabled = false
+        };
+        _nextSourceMatchButton.Click += NextSourceMatchButton_Click;
+
+        _sourceMatchStatusTextBlock = new TextBlock
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = Application.Current.Resources["TextFillColorSecondaryBrush"] as Brush
+        };
+
         _sourceRichTextBlock = new RichTextBlock
         {
             FontFamily = new FontFamily("Consolas"),
@@ -171,10 +198,18 @@ public sealed class AppPackageBrowserView : UserControl
         };
         _sourceRichTextBlock.Blocks.Add(new Paragraph());
 
+        _sourceScrollViewer = new ScrollViewer
+        {
+            Content = _sourceRichTextBlock,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
+
         Content = BuildLayout();
         SetGlobalSearchStatus(string.Empty, false);
         SetMetadata(null);
         UpdateGlobalSearchChrome();
+        UpdateSourceMatchChrome();
     }
 
     public void SetSession(OracleConnectionSession session)
@@ -252,17 +287,23 @@ public sealed class AppPackageBrowserView : UserControl
         Grid sourceGrid = new() { RowSpacing = 8 };
         sourceGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         sourceGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        Grid sourceHeaderGrid = new() { ColumnSpacing = 8 };
+        sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         TextBlock sourceTitle = new() { Text = "PeopleCode Source" };
         sourceTitle.Style = Application.Current.Resources["SubtitleTextBlockStyle"] as Style;
-        sourceGrid.Children.Add(sourceTitle);
-        ScrollViewer sourceScrollViewer = new()
-        {
-            Content = _sourceRichTextBlock,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
-        };
-        Grid.SetRow(sourceScrollViewer, 1);
-        sourceGrid.Children.Add(sourceScrollViewer);
+        sourceHeaderGrid.Children.Add(sourceTitle);
+        Grid.SetColumn(_sourceMatchStatusTextBlock, 1);
+        sourceHeaderGrid.Children.Add(_sourceMatchStatusTextBlock);
+        Grid.SetColumn(_previousSourceMatchButton, 2);
+        sourceHeaderGrid.Children.Add(_previousSourceMatchButton);
+        Grid.SetColumn(_nextSourceMatchButton, 3);
+        sourceHeaderGrid.Children.Add(_nextSourceMatchButton);
+        sourceGrid.Children.Add(sourceHeaderGrid);
+        Grid.SetRow(_sourceScrollViewer, 1);
+        sourceGrid.Children.Add(_sourceScrollViewer);
         Border sourceBorder = BuildPlainBorder(sourceGrid);
         Grid.SetRow(sourceBorder, 2);
         detailGrid.Children.Add(sourceBorder);
@@ -414,6 +455,16 @@ public sealed class AppPackageBrowserView : UserControl
     private void ClearGlobalSearchButton_Click(object sender, RoutedEventArgs e)
     {
         ClearGlobalSearchMode();
+    }
+
+    private void PreviousSourceMatchButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateCurrentSourceMatch(-1);
+    }
+
+    private void NextSourceMatchButton_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateCurrentSourceMatch(1);
     }
 
     private async void EntriesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -678,6 +729,7 @@ public sealed class AppPackageBrowserView : UserControl
         _isGlobalSearchMode = false;
         _activeGlobalSearchText = string.Empty;
         _globalSearchResults.Clear();
+        _globalSourceSearchTextBox.Text = string.Empty;
         _globalSearchErrorInfoBar.IsOpen = false;
         SetGlobalSearchStatus(string.Empty, false);
         UpdateGlobalSearchChrome();
@@ -800,20 +852,127 @@ public sealed class AppPackageBrowserView : UserControl
     {
         _currentSourceText = text;
         _currentSourceUsesSyntaxHighlighting = useSyntaxHighlighting;
+        _currentSourceMatchRanges = _isGlobalSearchMode && !string.IsNullOrWhiteSpace(_activeGlobalSearchText)
+            ? PeopleCodeSourceFormatter.GetMatchRanges(text, _activeGlobalSearchText)
+            : Array.Empty<TextRange>();
+        _activeSourceMatchIndex = _currentSourceMatchRanges.Count > 0 ? 0 : -1;
         PeopleCodeSourceFormatter.ApplyFormatting(
             _sourceRichTextBlock,
             text,
             useSyntaxHighlighting,
-            _isGlobalSearchMode ? _activeGlobalSearchText : null);
+            _isGlobalSearchMode ? _activeGlobalSearchText : null,
+            _activeSourceMatchIndex);
+        UpdateSourceMatchChrome();
+
+        if (_activeSourceMatchIndex >= 0)
+        {
+            ScrollActiveMatchIntoView();
+        }
+        else
+        {
+            _sourceScrollViewer.ChangeView(0, 0, null, true);
+        }
     }
 
     private void RefreshSourceViewerFormatting()
     {
+        _currentSourceMatchRanges = _isGlobalSearchMode && !string.IsNullOrWhiteSpace(_activeGlobalSearchText)
+            ? PeopleCodeSourceFormatter.GetMatchRanges(_currentSourceText, _activeGlobalSearchText)
+            : Array.Empty<TextRange>();
+        if (_currentSourceMatchRanges.Count == 0)
+        {
+            _activeSourceMatchIndex = -1;
+        }
+        else if (_activeSourceMatchIndex < 0 || _activeSourceMatchIndex >= _currentSourceMatchRanges.Count)
+        {
+            _activeSourceMatchIndex = 0;
+        }
+
         PeopleCodeSourceFormatter.ApplyFormatting(
             _sourceRichTextBlock,
             _currentSourceText,
             _currentSourceUsesSyntaxHighlighting,
-            _isGlobalSearchMode ? _activeGlobalSearchText : null);
+            _isGlobalSearchMode ? _activeGlobalSearchText : null,
+            _activeSourceMatchIndex);
+        UpdateSourceMatchChrome();
+    }
+
+    private void UpdateSourceMatchChrome()
+    {
+        bool hasNavigableMatches = _isGlobalSearchMode && _currentSourceMatchRanges.Count > 0;
+        _previousSourceMatchButton.IsEnabled = hasNavigableMatches;
+        _nextSourceMatchButton.IsEnabled = hasNavigableMatches;
+
+        _sourceMatchStatusTextBlock.Text = hasNavigableMatches
+            ? $"Match {_activeSourceMatchIndex + 1} of {_currentSourceMatchRanges.Count}"
+            : _isGlobalSearchMode && !string.IsNullOrWhiteSpace(_activeGlobalSearchText)
+                ? "No matches in current source"
+                : string.Empty;
+    }
+
+    private void NavigateCurrentSourceMatch(int direction)
+    {
+        if (!_isGlobalSearchMode || _currentSourceMatchRanges.Count == 0)
+        {
+            return;
+        }
+
+        int nextIndex = _activeSourceMatchIndex;
+        if (nextIndex < 0)
+        {
+            nextIndex = 0;
+        }
+        else
+        {
+            nextIndex = (nextIndex + direction + _currentSourceMatchRanges.Count) % _currentSourceMatchRanges.Count;
+        }
+
+        _activeSourceMatchIndex = nextIndex;
+        RefreshSourceViewerFormatting();
+        ScrollActiveMatchIntoView();
+    }
+
+    private void ScrollActiveMatchIntoView()
+    {
+        if (_activeSourceMatchIndex < 0 || _activeSourceMatchIndex >= _currentSourceMatchRanges.Count)
+        {
+            return;
+        }
+
+        TextRange activeRange = _currentSourceMatchRanges[_activeSourceMatchIndex];
+        int precedingLineBreaks = 0;
+        int lastLineBreakIndex = -1;
+        int upperBound = Math.Min(activeRange.StartIndex, _currentSourceText.Length);
+        for (int index = 0; index < upperBound; index++)
+        {
+            if (_currentSourceText[index] == '\n')
+            {
+                precedingLineBreaks++;
+                lastLineBreakIndex = index;
+            }
+        }
+
+        int columnIndex = Math.Max(0, upperBound - lastLineBreakIndex - 1);
+        string[] sourceLines = _currentSourceText.Split('\n');
+        int totalLineCount = Math.Max(1, sourceLines.Length);
+        int maxLineLength = Math.Max(1, sourceLines.Max(static line => line.Replace("\r", string.Empty).Length));
+
+        double scrollableHeight = Math.Max(0d, _sourceScrollViewer.ExtentHeight - _sourceScrollViewer.ViewportHeight);
+        double scrollableWidth = Math.Max(0d, _sourceScrollViewer.ExtentWidth - _sourceScrollViewer.ViewportWidth);
+
+        double targetLineRatio = totalLineCount <= 1
+            ? 0d
+            : Math.Clamp((double)precedingLineBreaks / (totalLineCount - 1), 0d, 1d);
+        double targetColumnRatio = maxLineLength <= 1
+            ? 0d
+            : Math.Clamp((double)columnIndex / maxLineLength, 0d, 1d);
+
+        double verticalPadding = Math.Max(24d, _sourceScrollViewer.ViewportHeight * 0.2d);
+        double horizontalPadding = Math.Max(24d, _sourceScrollViewer.ViewportWidth * 0.1d);
+        double verticalOffset = Math.Max(0d, (scrollableHeight * targetLineRatio) - verticalPadding);
+        double horizontalOffset = Math.Max(0d, (scrollableWidth * targetColumnRatio) - horizontalPadding);
+
+        _sourceScrollViewer.ChangeView(horizontalOffset, verticalOffset, null, false);
     }
 
     private void SetMetadata(AppPackageEntry? entry)

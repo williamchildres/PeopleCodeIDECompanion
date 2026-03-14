@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.UI.Xaml;
@@ -18,12 +19,15 @@ internal static partial class PeopleCodeSourceFormatter
     private static readonly Brush KeywordBrush = CreateBrush("#7FB4FF");
     private static readonly Brush MatchBackgroundBrush = CreateBrush("#5A4700");
     private static readonly Brush MatchForegroundBrush = CreateBrush("#FFF4B8");
+    private static readonly Brush ActiveMatchBackgroundBrush = CreateBrush("#C48A00");
+    private static readonly Brush ActiveMatchForegroundBrush = CreateBrush("#1A1200");
 
     public static void ApplyFormatting(
         RichTextBlock sourceViewer,
         string sourceText,
         bool useSyntaxHighlighting,
-        string? highlightedSearchText)
+        string? highlightedSearchText,
+        int activeMatchIndex = -1)
     {
         sourceText ??= string.Empty;
         sourceViewer.Blocks.Clear();
@@ -71,17 +75,18 @@ internal static partial class PeopleCodeSourceFormatter
 
         if (!string.IsNullOrWhiteSpace(highlightedSearchText) && !string.IsNullOrEmpty(sourceText))
         {
-            ApplyMatchHighlighting(sourceViewer, sourceText, highlightedSearchText);
+            ApplyMatchHighlighting(sourceViewer, sourceText, highlightedSearchText, activeMatchIndex);
         }
     }
 
-    private static void ApplyMatchHighlighting(RichTextBlock sourceViewer, string sourceText, string highlightedSearchText)
+    public static IReadOnlyList<TextRange> GetMatchRanges(string sourceText, string highlightedSearchText)
     {
-        TextHighlighter highlighter = new()
+        List<TextRange> ranges = [];
+
+        if (string.IsNullOrWhiteSpace(highlightedSearchText) || string.IsNullOrEmpty(sourceText))
         {
-            Background = MatchBackgroundBrush,
-            Foreground = MatchForegroundBrush
-        };
+            return ranges;
+        }
 
         int currentIndex = 0;
         while (currentIndex < sourceText.Length)
@@ -92,13 +97,55 @@ internal static partial class PeopleCodeSourceFormatter
                 break;
             }
 
-            highlighter.Ranges.Add(new TextRange(matchIndex, highlightedSearchText.Length));
+            ranges.Add(new TextRange(matchIndex, highlightedSearchText.Length));
             currentIndex = matchIndex + Math.Max(1, highlightedSearchText.Length);
+        }
+
+        return ranges;
+    }
+
+    private static void ApplyMatchHighlighting(
+        RichTextBlock sourceViewer,
+        string sourceText,
+        string highlightedSearchText,
+        int activeMatchIndex)
+    {
+        IReadOnlyList<TextRange> matchRanges = GetMatchRanges(sourceText, highlightedSearchText);
+        if (matchRanges.Count == 0)
+        {
+            return;
+        }
+
+        TextHighlighter highlighter = new()
+        {
+            Background = MatchBackgroundBrush,
+            Foreground = MatchForegroundBrush
+        };
+
+        for (int index = 0; index < matchRanges.Count; index++)
+        {
+            if (index == activeMatchIndex)
+            {
+                continue;
+            }
+
+            highlighter.Ranges.Add(matchRanges[index]);
         }
 
         if (highlighter.Ranges.Count > 0)
         {
             sourceViewer.TextHighlighters.Add(highlighter);
+        }
+
+        if (activeMatchIndex >= 0 && activeMatchIndex < matchRanges.Count)
+        {
+            TextHighlighter activeHighlighter = new()
+            {
+                Background = ActiveMatchBackgroundBrush,
+                Foreground = ActiveMatchForegroundBrush
+            };
+            activeHighlighter.Ranges.Add(matchRanges[activeMatchIndex]);
+            sourceViewer.TextHighlighters.Add(activeHighlighter);
         }
     }
 
