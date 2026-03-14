@@ -19,6 +19,7 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
     private const int GlobalSearchResultLimit = 200;
 
     private readonly RecordPeopleCodeBrowserService _browserService = new();
+    private readonly PeopleSoftUserNameResolverService _userNameResolver = new();
     private readonly List<RecordPeopleCodeItem> _allItems = [];
     private readonly ObservableCollection<string> _filteredRecords = [];
     private readonly ObservableCollection<RecordPeopleCodeItem> _filteredItems = [];
@@ -29,6 +30,8 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
     private RecordPeopleCodeItem? _selectedItem;
     private int _globalSearchVersion;
     private int _sourceLoadVersion;
+    private int _loadItemsVersion;
+    private int _metadataVersion;
     private bool _isGlobalSearchMode;
     private string _activeGlobalSearchText = string.Empty;
     private string _currentSourceText = string.Empty;
@@ -202,6 +205,9 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
             return;
         }
 
+        OracleConnectionSession session = _session;
+        int loadItemsVersion = ++_loadItemsVersion;
+
         _statusStore?.MarkLoading(AllObjectsPeopleCodeBrowserService.RecordMode);
         InlineErrorInfoBar.IsOpen = false;
         GlobalSearchErrorInfoBar.IsOpen = false;
@@ -219,7 +225,14 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
         UpdateGlobalSearchChrome();
         MetadataSummaryTextBlock.Text = "Loading Record PeopleCode metadata...";
 
-        RecordPeopleCodeBrowseResult result = await _browserService.GetItemsAsync(_session.Options);
+        RecordPeopleCodeBrowseResult result = await _browserService.GetItemsAsync(session.Options);
+        if (loadItemsVersion != _loadItemsVersion ||
+            _session is null ||
+            !_session.ProfileId.Equals(session.ProfileId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
             _statusStore?.MarkError(AllObjectsPeopleCodeBrowserService.RecordMode);
@@ -495,8 +508,11 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
 
     private void SetMetadata(RecordPeopleCodeItem? item)
     {
+        int metadataVersion = ++_metadataVersion;
+
         if (item is null)
         {
+            MetadataLastUpdatedTextBlock.Text = string.Empty;
             SelectedItemTitleTextBlock.Text = string.Empty;
             SelectedItemSubtitleTextBlock.Text = string.Empty;
             MetadataSummaryTextBlock.Text =
@@ -507,12 +523,58 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
         SelectedItemTitleTextBlock.Text = item.DisplayName;
         SelectedItemSubtitleTextBlock.Text = item.RecordName;
         MetadataSummaryTextBlock.Text = BuildMetadataText(item);
+        MetadataLastUpdatedTextBlock.Text = BuildLastUpdatedText(item.LastUpdatedBy, item.LastUpdatedDateTime);
+        _ = UpdateMetadataLastUpdatedAsync(item, metadataVersion);
     }
 
     private string BuildMetadataText(RecordPeopleCodeItem item)
     {
-        return
-            $"RECORD={ValueOrPlaceholder(item.RecordName)}, FIELD={ValueOrPlaceholder(item.FieldName)}, EVENT={ValueOrPlaceholder(item.EventName)}, LEVEL={item.LevelLabel}, LASTUPDOPRID={ValueOrPlaceholder(item.LastUpdatedBy)}, LASTUPDDTTM={item.LastUpdatedDateTime?.ToString("u") ?? "(blank)"}";
+        return JoinMetadataParts(
+            ("RECORD", item.RecordName),
+            ("FIELD", item.FieldName),
+            ("EVENT", item.EventName),
+            ("LEVEL", item.LevelLabel));
+    }
+
+    private async Task UpdateMetadataLastUpdatedAsync(RecordPeopleCodeItem item, int metadataVersion)
+    {
+        if (_session is null || string.IsNullOrWhiteSpace(item.LastUpdatedBy) || !item.LastUpdatedBy.All(char.IsDigit))
+        {
+            return;
+        }
+
+        string displayLabel = await _userNameResolver.GetDisplayLabelAsync(_session.Options, item.LastUpdatedBy);
+        if (metadataVersion != _metadataVersion || !ReferenceEquals(_selectedItem, item))
+        {
+            return;
+        }
+
+        MetadataLastUpdatedTextBlock.Text = BuildLastUpdatedText(displayLabel, item.LastUpdatedDateTime);
+    }
+
+    private static string BuildLastUpdatedText(string displayLabel, DateTime? lastUpdatedDateTime)
+    {
+        if (string.IsNullOrWhiteSpace(displayLabel) && lastUpdatedDateTime is null)
+        {
+            return string.Empty;
+        }
+
+        string updatedBy = string.IsNullOrWhiteSpace(displayLabel) ? "(blank)" : displayLabel;
+        string updatedOn = FormatLastUpdatedDateTime(lastUpdatedDateTime);
+        return $"Last updated by {updatedBy} on {updatedOn}";
+    }
+
+    private static string FormatLastUpdatedDateTime(DateTime? lastUpdatedDateTime)
+    {
+        if (lastUpdatedDateTime is null)
+        {
+            return "(blank)";
+        }
+
+        DateTime displayDateTime = lastUpdatedDateTime.Value.Kind == DateTimeKind.Utc
+            ? lastUpdatedDateTime.Value.ToLocalTime()
+            : lastUpdatedDateTime.Value;
+        return displayDateTime.ToString("M/d/yyyy h:mm tt");
     }
 
     private void SetSourceViewerText(string text)
@@ -662,6 +724,15 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
     private static string ValueOrPlaceholder(string value)
     {
         return string.IsNullOrWhiteSpace(value) ? "(blank)" : value;
+    }
+
+    private static string JoinMetadataParts(params (string Label, string? Value)[] parts)
+    {
+        return string.Join(
+            ", ",
+            parts
+                .Where(part => !string.IsNullOrWhiteSpace(part.Value))
+                .Select(part => $"{part.Label}={part.Value}"));
     }
 
     private sealed class RecordPeopleCodeItemIdentityComparer : IEqualityComparer<RecordPeopleCodeItem>

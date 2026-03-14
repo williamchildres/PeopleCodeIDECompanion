@@ -43,6 +43,7 @@ public sealed class AppPackageBrowserView : UserControl
     private readonly TextBlock _globalSearchLimitationTextBlock;
     private readonly TextBlock _selectedEntryTitleTextBlock;
     private readonly TextBlock _selectedEntryTypeTextBlock;
+    private readonly TextBlock _metadataLastUpdatedTextBlock;
     private readonly TextBlock _metadataSummaryTextBlock;
     private readonly Button _previousSourceMatchButton;
     private readonly Button _nextSourceMatchButton;
@@ -52,9 +53,12 @@ public sealed class AppPackageBrowserView : UserControl
 
     private OracleConnectionSession? _session;
     private PeopleCodeObjectStatusStore? _statusStore;
+    private readonly PeopleSoftUserNameResolverService _userNameResolver = new();
     private AppPackageEntry? _selectedEntry;
     private int _globalSearchVersion;
     private int _sourceLoadVersion;
+    private int _loadEntriesVersion;
+    private int _metadataVersion;
     private bool _isGlobalSearchMode;
     private string _activeGlobalSearchText = string.Empty;
     private string _currentSourceText = string.Empty;
@@ -155,6 +159,14 @@ public sealed class AppPackageBrowserView : UserControl
         _selectedEntryTitleTextBlock.Style = Application.Current.Resources["BodyStrongTextBlockStyle"] as Style;
 
         _selectedEntryTypeTextBlock = new TextBlock();
+
+        _metadataLastUpdatedTextBlock = new TextBlock
+        {
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = Application.Current.Resources["TextFillColorSecondaryBrush"] as Brush,
+            TextWrapping = TextWrapping.WrapWholeWords
+        };
 
         _metadataSummaryTextBlock = new TextBlock
         {
@@ -305,9 +317,15 @@ public sealed class AppPackageBrowserView : UserControl
         detailGrid.Children.Add(BuildGlobalSearchBorder());
 
         StackPanel metadataPanel = new() { Spacing = 6 };
+        Grid metadataHeaderGrid = new() { ColumnSpacing = 12 };
+        metadataHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        metadataHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         TextBlock metadataTitle = new() { Text = "Metadata" };
         metadataTitle.Style = Application.Current.Resources["SubtitleTextBlockStyle"] as Style;
-        metadataPanel.Children.Add(metadataTitle);
+        metadataHeaderGrid.Children.Add(metadataTitle);
+        Grid.SetColumn(_metadataLastUpdatedTextBlock, 1);
+        metadataHeaderGrid.Children.Add(_metadataLastUpdatedTextBlock);
+        metadataPanel.Children.Add(metadataHeaderGrid);
         metadataPanel.Children.Add(_selectedEntryTitleTextBlock);
         metadataPanel.Children.Add(_selectedEntryTypeTextBlock);
         metadataPanel.Children.Add(_metadataSummaryTextBlock);
@@ -541,6 +559,9 @@ public sealed class AppPackageBrowserView : UserControl
             return;
         }
 
+        OracleConnectionSession session = _session;
+        int loadEntriesVersion = ++_loadEntriesVersion;
+
         _statusStore?.MarkLoading(AllObjectsPeopleCodeBrowserService.AppPackageMode);
         _inlineErrorInfoBar.IsOpen = false;
         SetSourceViewerText(string.Empty, useSyntaxHighlighting: false);
@@ -563,7 +584,13 @@ public sealed class AppPackageBrowserView : UserControl
         SetMetadata(null);
         _metadataSummaryTextBlock.Text = "Loading App Package metadata...";
 
-        AppPackageBrowseResult result = await _browserService.GetEntriesAsync(_session.Options);
+        AppPackageBrowseResult result = await _browserService.GetEntriesAsync(session.Options);
+        if (loadEntriesVersion != _loadEntriesVersion ||
+            _session is null ||
+            !_session.ProfileId.Equals(session.ProfileId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
 
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
@@ -1012,8 +1039,11 @@ public sealed class AppPackageBrowserView : UserControl
 
     private void SetMetadata(AppPackageEntry? entry)
     {
+        int metadataVersion = ++_metadataVersion;
+
         if (entry is null || string.IsNullOrWhiteSpace(entry.PackageRoot))
         {
+            _metadataLastUpdatedTextBlock.Text = string.Empty;
             _selectedEntryTitleTextBlock.Text = string.Empty;
             _selectedEntryTypeTextBlock.Text = string.Empty;
             _metadataSummaryTextBlock.Text = "Select an App Package entry to view available identifiers.";
@@ -1022,13 +1052,70 @@ public sealed class AppPackageBrowserView : UserControl
 
         _selectedEntryTitleTextBlock.Text = entry.DisplayName;
         _selectedEntryTypeTextBlock.Text = entry.EntryType;
-        _metadataSummaryTextBlock.Text =
-            $"OBJECTVALUE2={ValueOrPlaceholder(entry.ObjectValue2)}, OBJECTVALUE3={ValueOrPlaceholder(entry.ObjectValue3)}, OBJECTVALUE4={ValueOrPlaceholder(entry.ObjectValue4)}, OBJECTVALUE5={ValueOrPlaceholder(entry.ObjectValue5)}, OBJECTVALUE6={ValueOrPlaceholder(entry.ObjectValue6)}, OBJECTVALUE7={ValueOrPlaceholder(entry.ObjectValue7)}, LASTUPDOPRID={ValueOrPlaceholder(entry.LastUpdatedBy)}, LASTUPDDTTM={entry.LastUpdatedDateTime?.ToString("u") ?? "(blank)"}";
+        _metadataSummaryTextBlock.Text = JoinMetadataParts(
+            ("OBJECTVALUE2", entry.ObjectValue2),
+            ("OBJECTVALUE3", entry.ObjectValue3),
+            ("OBJECTVALUE4", entry.ObjectValue4),
+            ("OBJECTVALUE5", entry.ObjectValue5),
+            ("OBJECTVALUE6", entry.ObjectValue6),
+            ("OBJECTVALUE7", entry.ObjectValue7));
+        _metadataLastUpdatedTextBlock.Text = BuildLastUpdatedText(entry.LastUpdatedBy, entry.LastUpdatedDateTime);
+        _ = UpdateMetadataLastUpdatedAsync(entry, metadataVersion);
+    }
+
+    private async Task UpdateMetadataLastUpdatedAsync(AppPackageEntry entry, int metadataVersion)
+    {
+        if (_session is null || string.IsNullOrWhiteSpace(entry.LastUpdatedBy) || !entry.LastUpdatedBy.All(char.IsDigit))
+        {
+            return;
+        }
+
+        string displayLabel = await _userNameResolver.GetDisplayLabelAsync(_session.Options, entry.LastUpdatedBy);
+        if (metadataVersion != _metadataVersion || !ReferenceEquals(_selectedEntry, entry))
+        {
+            return;
+        }
+
+        _metadataLastUpdatedTextBlock.Text = BuildLastUpdatedText(displayLabel, entry.LastUpdatedDateTime);
+    }
+
+    private static string BuildLastUpdatedText(string displayLabel, DateTime? lastUpdatedDateTime)
+    {
+        if (string.IsNullOrWhiteSpace(displayLabel) && lastUpdatedDateTime is null)
+        {
+            return string.Empty;
+        }
+
+        string updatedBy = string.IsNullOrWhiteSpace(displayLabel) ? "(blank)" : displayLabel;
+        string updatedOn = FormatLastUpdatedDateTime(lastUpdatedDateTime);
+        return $"Last updated by {updatedBy} on {updatedOn}";
+    }
+
+    private static string FormatLastUpdatedDateTime(DateTime? lastUpdatedDateTime)
+    {
+        if (lastUpdatedDateTime is null)
+        {
+            return "(blank)";
+        }
+
+        DateTime displayDateTime = lastUpdatedDateTime.Value.Kind == DateTimeKind.Utc
+            ? lastUpdatedDateTime.Value.ToLocalTime()
+            : lastUpdatedDateTime.Value;
+        return displayDateTime.ToString("M/d/yyyy h:mm tt");
     }
 
     private static string ValueOrPlaceholder(string value)
     {
         return string.IsNullOrWhiteSpace(value) ? "(blank)" : value;
+    }
+
+    private static string JoinMetadataParts(params (string Label, string? Value)[] parts)
+    {
+        return string.Join(
+            ", ",
+            parts
+                .Where(part => !string.IsNullOrWhiteSpace(part.Value))
+                .Select(part => $"{part.Label}={part.Value}"));
     }
 
     private sealed class EntryIdentityComparer : IEqualityComparer<AppPackageEntry>

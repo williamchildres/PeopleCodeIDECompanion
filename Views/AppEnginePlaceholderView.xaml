@@ -201,8 +201,20 @@
                         CornerRadius="8"
                         Padding="12">
                     <StackPanel Spacing="6">
-                        <TextBlock Text="Metadata"
-                                   Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Metadata"
+                                       Style="{ThemeResource SubtitleTextBlockStyle}" />
+                            <TextBlock x:Name="MetadataLastUpdatedTextBlock"
+                                       Grid.Column="1"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="WrapWholeWords" />
+                        </Grid>
                         <TextBlock x:Name="SelectedItemTitleTextBlock"
                                    TextWrapping="WrapWholeWords"
                                    Style="{ThemeResource BodyStrongTextBlockStyle}" />

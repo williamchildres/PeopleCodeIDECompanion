@@ -19,6 +19,7 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
     private const int GlobalSearchResultLimit = 200;
 
     private readonly PagePeopleCodeBrowserService _browserService = new();
+    private readonly PeopleSoftUserNameResolverService _userNameResolver = new();
     private readonly List<PagePeopleCodeItem> _allItems = [];
     private readonly ObservableCollection<string> _filteredPages = [];
     private readonly ObservableCollection<PagePeopleCodeItem> _filteredItems = [];
@@ -29,6 +30,8 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
     private PagePeopleCodeItem? _selectedItem;
     private int _globalSearchVersion;
     private int _sourceLoadVersion;
+    private int _loadItemsVersion;
+    private int _metadataVersion;
     private bool _isGlobalSearchMode;
     private string _activeGlobalSearchText = string.Empty;
     private string _currentSourceText = string.Empty;
@@ -158,8 +161,8 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
         }
 
         MetadataSummaryTextBlock.Text = string.IsNullOrWhiteSpace(result.SourceText)
-            ? item.BuildMetadataSummary() + " No source rows were returned for the selected key."
-            : item.BuildMetadataSummary();
+            ? BuildMetadataText(item) + " No source rows were returned for the selected key."
+            : BuildMetadataText(item);
 
         SetSourceViewerText(result.SourceText);
     }
@@ -202,6 +205,9 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
             return;
         }
 
+        OracleConnectionSession session = _session;
+        int loadItemsVersion = ++_loadItemsVersion;
+
         _statusStore?.MarkLoading(AllObjectsPeopleCodeBrowserService.PageMode);
         InlineErrorInfoBar.IsOpen = false;
         GlobalSearchErrorInfoBar.IsOpen = false;
@@ -219,7 +225,14 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
         UpdateGlobalSearchChrome();
         MetadataSummaryTextBlock.Text = "Loading Page PeopleCode metadata...";
 
-        PagePeopleCodeBrowseResult result = await _browserService.GetItemsAsync(_session.Options);
+        PagePeopleCodeBrowseResult result = await _browserService.GetItemsAsync(session.Options);
+        if (loadItemsVersion != _loadItemsVersion ||
+            _session is null ||
+            !_session.ProfileId.Equals(session.ProfileId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
             _statusStore?.MarkError(AllObjectsPeopleCodeBrowserService.PageMode);
@@ -495,8 +508,11 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
 
     private void SetMetadata(PagePeopleCodeItem? item)
     {
+        int metadataVersion = ++_metadataVersion;
+
         if (item is null)
         {
+            MetadataLastUpdatedTextBlock.Text = string.Empty;
             SelectedItemTitleTextBlock.Text = string.Empty;
             SelectedItemSubtitleTextBlock.Text = string.Empty;
             MetadataSummaryTextBlock.Text =
@@ -506,7 +522,59 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
 
         SelectedItemTitleTextBlock.Text = item.DisplayName;
         SelectedItemSubtitleTextBlock.Text = $"{item.PageName} | {item.StructureLabel}";
-        MetadataSummaryTextBlock.Text = item.BuildMetadataSummary();
+        MetadataSummaryTextBlock.Text = BuildMetadataText(item);
+        MetadataLastUpdatedTextBlock.Text = BuildLastUpdatedText(item.LastUpdatedBy, item.LastUpdatedDateTime);
+        _ = UpdateMetadataLastUpdatedAsync(item, metadataVersion);
+    }
+
+    private static string BuildMetadataText(PagePeopleCodeItem item)
+    {
+        return JoinMetadataParts(
+            ("PAGE", item.PageName),
+            ("STRUCTURE", item.StructureLabel),
+            ("OBJECTIDS", BuildObjectIdLabel(item)),
+            ("OBJECTVALUES", BuildObjectValueLabel(item)));
+    }
+
+    private async Task UpdateMetadataLastUpdatedAsync(PagePeopleCodeItem item, int metadataVersion)
+    {
+        if (_session is null || string.IsNullOrWhiteSpace(item.LastUpdatedBy) || !item.LastUpdatedBy.All(char.IsDigit))
+        {
+            return;
+        }
+
+        string displayLabel = await _userNameResolver.GetDisplayLabelAsync(_session.Options, item.LastUpdatedBy);
+        if (metadataVersion != _metadataVersion || !ReferenceEquals(_selectedItem, item))
+        {
+            return;
+        }
+
+        MetadataLastUpdatedTextBlock.Text = BuildLastUpdatedText(displayLabel, item.LastUpdatedDateTime);
+    }
+
+    private static string BuildLastUpdatedText(string displayLabel, DateTime? lastUpdatedDateTime)
+    {
+        if (string.IsNullOrWhiteSpace(displayLabel) && lastUpdatedDateTime is null)
+        {
+            return string.Empty;
+        }
+
+        string updatedBy = string.IsNullOrWhiteSpace(displayLabel) ? "(blank)" : displayLabel;
+        string updatedOn = FormatLastUpdatedDateTime(lastUpdatedDateTime);
+        return $"Last updated by {updatedBy} on {updatedOn}";
+    }
+
+    private static string FormatLastUpdatedDateTime(DateTime? lastUpdatedDateTime)
+    {
+        if (lastUpdatedDateTime is null)
+        {
+            return "(blank)";
+        }
+
+        DateTime displayDateTime = lastUpdatedDateTime.Value.Kind == DateTimeKind.Utc
+            ? lastUpdatedDateTime.Value.ToLocalTime()
+            : lastUpdatedDateTime.Value;
+        return displayDateTime.ToString("M/d/yyyy h:mm tt");
     }
 
     private void SetSourceViewerText(string text)
@@ -659,6 +727,58 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
             && left.ObjectValue5.Equals(right.ObjectValue5, StringComparison.OrdinalIgnoreCase)
             && left.ObjectValue6.Equals(right.ObjectValue6, StringComparison.OrdinalIgnoreCase)
             && left.ObjectValue7.Equals(right.ObjectValue7, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ValueOrPlaceholder(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "(blank)" : value;
+    }
+
+    private static string ValueOrPlaceholder(int? value)
+    {
+        return value?.ToString() ?? "(blank)";
+    }
+
+    private static string BuildObjectIdLabel(PagePeopleCodeItem item)
+    {
+        return string.Join(
+            "/",
+            new int?[]
+            {
+                item.ObjectId2,
+                item.ObjectId3,
+                item.ObjectId4,
+                item.ObjectId5,
+                item.ObjectId6,
+                item.ObjectId7
+            }
+            .Where(value => value is not null)
+            .Select(value => value!.Value.ToString()));
+    }
+
+    private static string BuildObjectValueLabel(PagePeopleCodeItem item)
+    {
+        return string.Join(
+            "/",
+            new[]
+            {
+                item.ObjectValue2,
+                item.ObjectValue3,
+                item.ObjectValue4,
+                item.ObjectValue5,
+                item.ObjectValue6,
+                item.ObjectValue7
+            }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    private static string JoinMetadataParts(params (string Label, string? Value)[] parts)
+    {
+        return string.Join(
+            ", ",
+            parts
+                .Where(part => !string.IsNullOrWhiteSpace(part.Value))
+                .Select(part => $"{part.Label}={part.Value}"));
     }
 
     private sealed class PagePeopleCodeItemIdentityComparer : IEqualityComparer<PagePeopleCodeItem>
