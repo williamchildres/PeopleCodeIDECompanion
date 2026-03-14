@@ -252,24 +252,32 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
                             <TextBlock Text="PeopleCode Source"
                                        Style="{ThemeResource SubtitleTextBlockStyle}" />
 
-                            <TextBlock x:Name="SourceMatchStatusTextBlock"
+                            <Button x:Name="OpenDetachedSourceButton"
                                        Grid.Column="1"
+                                       Content="Open"
+                                       IsEnabled="False"
+                                       ToolTipService.ToolTip="Open in new window"
+                                       Click="OpenDetachedSourceButton_Click" />
+
+                            <TextBlock x:Name="SourceMatchStatusTextBlock"
+                                       Grid.Column="2"
                                        VerticalAlignment="Center"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
                             <Button x:Name="PreviousSourceMatchButton"
-                                    Grid.Column="2"
+                                    Grid.Column="3"
                                     Content="Previous Match"
                                     IsEnabled="False"
                                     Click="PreviousSourceMatchButton_Click" />
 
                             <Button x:Name="NextSourceMatchButton"
-                                    Grid.Column="3"
+                                    Grid.Column="4"
                                     Content="Next Match"
                                     IsEnabled="False"
                                     Click="NextSourceMatchButton_Click" />

@@ -22,6 +22,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     private const string EmptyStateMessage = "Enter a search term to search across all supported PeopleCode object types.";
 
     private readonly AllObjectsPeopleCodeBrowserService _browserService = new();
+    private readonly DetachedSourceWindowManager _detachedSourceWindowManager;
     private readonly List<AllObjectsSearchItem> _allResults = [];
     private readonly ObservableCollection<AllObjectsSearchGroup> _visibleGroups = [];
     private readonly ObservableCollection<AllObjectsSearchItem> _visibleResults = [];
@@ -39,6 +40,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     private readonly TextBlock _selectedItemTitleTextBlock;
     private readonly TextBlock _selectedItemSubtitleTextBlock;
     private readonly TextBlock _metadataSummaryTextBlock;
+    private readonly Button _openDetachedSourceButton;
     private readonly Button _previousSourceMatchButton;
     private readonly Button _nextSourceMatchButton;
     private readonly TextBlock _sourceMatchStatusTextBlock;
@@ -51,11 +53,13 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     private int _searchVersion;
     private int _sourceLoadVersion;
     private string _currentSourceText = string.Empty;
+    private bool _hasLoadedSelectedSource;
     private IReadOnlyList<TextRange> _currentSourceMatchRanges = Array.Empty<TextRange>();
     private int _activeSourceMatchIndex = -1;
 
-    public AllObjectsPeopleCodeBrowserView()
+    public AllObjectsPeopleCodeBrowserView(DetachedSourceWindowManager detachedSourceWindowManager)
     {
+        _detachedSourceWindowManager = detachedSourceWindowManager;
         _searchTextBox = new TextBox
         {
             PlaceholderText = "Search PeopleCode across App Package, App Engine, Record, Page, and Component"
@@ -126,6 +130,14 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         {
             TextWrapping = TextWrapping.WrapWholeWords
         };
+
+        _openDetachedSourceButton = new Button
+        {
+            Content = "Open",
+            IsEnabled = false
+        };
+        ToolTipService.SetToolTip(_openDetachedSourceButton, "Open in new window");
+        _openDetachedSourceButton.Click += OpenDetachedSourceButton_Click;
 
         _previousSourceMatchButton = new Button
         {
@@ -222,14 +234,17 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         TextBlock sourceTitle = new() { Text = "PeopleCode Source" };
         sourceTitle.Style = Application.Current.Resources["SubtitleTextBlockStyle"] as Style;
         sourceHeaderGrid.Children.Add(sourceTitle);
-        Grid.SetColumn(_sourceMatchStatusTextBlock, 1);
+        Grid.SetColumn(_openDetachedSourceButton, 1);
+        sourceHeaderGrid.Children.Add(_openDetachedSourceButton);
+        Grid.SetColumn(_sourceMatchStatusTextBlock, 2);
         sourceHeaderGrid.Children.Add(_sourceMatchStatusTextBlock);
-        Grid.SetColumn(_previousSourceMatchButton, 2);
+        Grid.SetColumn(_previousSourceMatchButton, 3);
         sourceHeaderGrid.Children.Add(_previousSourceMatchButton);
-        Grid.SetColumn(_nextSourceMatchButton, 3);
+        Grid.SetColumn(_nextSourceMatchButton, 4);
         sourceHeaderGrid.Children.Add(_nextSourceMatchButton);
         sourceGrid.Children.Add(sourceHeaderGrid);
 
@@ -385,6 +400,8 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     {
         _selectedItem = _resultsListView.SelectedItem as AllObjectsSearchItem;
         int sourceLoadVersion = ++_sourceLoadVersion;
+        _hasLoadedSelectedSource = false;
+        UpdateDetachedSourceChrome();
         UpdateMetadata(_selectedItem);
 
         if (_selectedItem is null || _session is null)
@@ -408,6 +425,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
             return;
         }
 
+        _hasLoadedSelectedSource = true;
         SetSourceViewerText(
             string.IsNullOrWhiteSpace(result.SourceText)
                 ? "No PeopleCode source text was returned for the selected result."
@@ -422,6 +440,16 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     private void NextSourceMatchButton_Click(object sender, RoutedEventArgs e)
     {
         NavigateCurrentSourceMatch(1);
+    }
+
+    private void OpenDetachedSourceButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!CanOpenDetachedSource())
+        {
+            return;
+        }
+
+        _detachedSourceWindowManager.Open(BuildDetachedSourceContext());
     }
 
     private async Task SearchAsync()
@@ -538,6 +566,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         {
             _selectedItem = null;
             _sourceLoadVersion++;
+            _hasLoadedSelectedSource = false;
             UpdateMetadata(null);
             SetSourceViewerText(string.Empty);
         }
@@ -554,6 +583,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         _visibleResults.Clear();
         _selectedItem = null;
         _activeSearchText = string.Empty;
+        _hasLoadedSelectedSource = false;
         _groupsListView.SelectedItem = null;
         _resultsListView.SelectedItem = null;
         if (clearSearchText)
@@ -619,6 +649,30 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         _metadataSummaryTextBlock.Text = item.MetadataSummary;
     }
 
+    private bool CanOpenDetachedSource()
+    {
+        return _selectedItem is not null && _hasLoadedSelectedSource;
+    }
+
+    private void UpdateDetachedSourceChrome()
+    {
+        _openDetachedSourceButton.IsEnabled = CanOpenDetachedSource();
+    }
+
+    private DetachedPeopleCodeSourceContext BuildDetachedSourceContext()
+    {
+        return DetachedPeopleCodeSourceContextFactory.Create(
+            _session,
+            _selectedItem?.ObjectType ?? "PeopleCode",
+            _selectedItemTitleTextBlock.Text,
+            _selectedItemSubtitleTextBlock.Text,
+            _metadataSummaryTextBlock.Text,
+            string.Empty,
+            _currentSourceText,
+            _activeSearchText,
+            useSyntaxHighlighting: true);
+    }
+
     private void SetSourceViewerText(string text)
     {
         _currentSourceText = text ?? string.Empty;
@@ -644,6 +698,8 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         {
             _sourceScrollViewer.ChangeView(0, 0, null, true);
         }
+
+        UpdateDetachedSourceChrome();
     }
 
     private void RefreshSourceViewerFormatting()

@@ -20,6 +20,7 @@ public sealed partial class AppEnginePlaceholderView : UserControl
 
     private readonly AppEngineBrowserService _browserService = new();
     private readonly PeopleSoftUserNameResolverService _userNameResolver = new();
+    private readonly DetachedSourceWindowManager _detachedSourceWindowManager;
     private readonly List<AppEngineItem> _allItems = [];
     private readonly ObservableCollection<string> _filteredPrograms = [];
     private readonly ObservableCollection<AppEngineItem> _filteredItems = [];
@@ -35,11 +36,13 @@ public sealed partial class AppEnginePlaceholderView : UserControl
     private bool _isGlobalSearchMode;
     private string _activeGlobalSearchText = string.Empty;
     private string _currentSourceText = string.Empty;
+    private bool _hasLoadedSelectedSource;
     private IReadOnlyList<TextRange> _currentSourceMatchRanges = Array.Empty<TextRange>();
     private int _activeSourceMatchIndex = -1;
 
-    public AppEnginePlaceholderView()
+    public AppEnginePlaceholderView(DetachedSourceWindowManager detachedSourceWindowManager)
     {
+        _detachedSourceWindowManager = detachedSourceWindowManager;
         InitializeComponent();
         ProgramsListView.ItemsSource = _filteredPrograms;
         ItemsListView.ItemsSource = _filteredItems;
@@ -129,12 +132,15 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         {
             _selectedItem = null;
             _sourceLoadVersion++;
+            _hasLoadedSelectedSource = false;
             SetMetadata(null);
             SetSourceViewerText(string.Empty);
             return;
         }
 
         _selectedItem = item;
+        _hasLoadedSelectedSource = false;
+        UpdateDetachedSourceChrome();
         SetMetadata(item);
 
         if (_session is null)
@@ -164,6 +170,7 @@ public sealed partial class AppEnginePlaceholderView : UserControl
             ? BuildMetadataText(item) + " No source rows were returned for the selected key."
             : BuildMetadataText(item);
 
+        _hasLoadedSelectedSource = true;
         SetSourceViewerText(result.SourceText);
     }
 
@@ -198,6 +205,16 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         NavigateCurrentSourceMatch(1);
     }
 
+    private void OpenDetachedSourceButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!CanOpenDetachedSource())
+        {
+            return;
+        }
+
+        _detachedSourceWindowManager.Open(BuildDetachedSourceContext());
+    }
+
     private async Task LoadItemsAsync()
     {
         if (_session is null)
@@ -218,6 +235,7 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         _selectedItem = null;
         _isGlobalSearchMode = false;
         _activeGlobalSearchText = string.Empty;
+        _hasLoadedSelectedSource = false;
         GlobalSourceSearchTextBox.Text = string.Empty;
         SetGlobalSearchStatus(string.Empty, false);
         SetMetadata(null);
@@ -333,6 +351,7 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         {
             _selectedItem = null;
             _sourceLoadVersion++;
+            _hasLoadedSelectedSource = false;
             SetMetadata(null);
             SetSourceViewerText(string.Empty);
         }
@@ -604,6 +623,8 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         {
             SourceScrollViewer.ChangeView(0, 0, null, true);
         }
+
+        UpdateDetachedSourceChrome();
     }
 
     private void RefreshSourceViewerFormatting()
@@ -743,6 +764,30 @@ public sealed partial class AppEnginePlaceholderView : UserControl
             parts
                 .Where(part => !string.IsNullOrWhiteSpace(part.Value))
                 .Select(part => $"{part.Label}={part.Value}"));
+    }
+
+    private bool CanOpenDetachedSource()
+    {
+        return _selectedItem is not null && _hasLoadedSelectedSource;
+    }
+
+    private void UpdateDetachedSourceChrome()
+    {
+        OpenDetachedSourceButton.IsEnabled = CanOpenDetachedSource();
+    }
+
+    private DetachedPeopleCodeSourceContext BuildDetachedSourceContext()
+    {
+        return DetachedPeopleCodeSourceContextFactory.Create(
+            _session,
+            "App Engine",
+            SelectedItemTitleTextBlock.Text,
+            SelectedItemSubtitleTextBlock.Text,
+            MetadataSummaryTextBlock.Text,
+            MetadataLastUpdatedTextBlock.Text,
+            _currentSourceText,
+            _isGlobalSearchMode ? _activeGlobalSearchText : null,
+            useSyntaxHighlighting: true);
     }
 
     private sealed class AppEngineItemIdentityComparer : IEqualityComparer<AppEngineItem>

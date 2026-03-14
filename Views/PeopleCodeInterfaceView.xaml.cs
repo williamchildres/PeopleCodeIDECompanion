@@ -20,6 +20,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     private const string ComponentMode = AllObjectsPeopleCodeBrowserService.ComponentMode;
 
     private readonly OracleSessionManager _sessionManager;
+    private readonly DetachedSourceWindowManager _detachedSourceWindowManager = new();
     private readonly Dictionary<string, ProfileWorkspace> _workspaces = [];
     private bool _isUpdatingModeSelection;
     private bool _isUpdatingProfileSelection;
@@ -72,7 +73,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         }
         else
         {
-            _workspaces[session.ProfileId] = new ProfileWorkspace(session);
+            _workspaces[session.ProfileId] = new ProfileWorkspace(session, _detachedSourceWindowManager);
         }
 
         SyncProfileSelection(_sessionManager.SelectedSession ?? session);
@@ -160,7 +161,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
             }
             else
             {
-                _workspaces[session.ProfileId] = new ProfileWorkspace(session);
+                _workspaces[session.ProfileId] = new ProfileWorkspace(session, _detachedSourceWindowManager);
             }
         }
 
@@ -322,16 +323,16 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
 
     private sealed class ProfileWorkspace
     {
-        public ProfileWorkspace(OracleConnectionSession session)
+        public ProfileWorkspace(OracleConnectionSession session, DetachedSourceWindowManager detachedSourceWindowManager)
         {
             Session = session;
             StatusStore = new PeopleCodeObjectStatusStore();
-            AllObjectsView = new AllObjectsPeopleCodeBrowserView();
-            AppEngineView = new AppEnginePlaceholderView();
-            AppPackageView = new AppPackageBrowserView();
-            RecordView = new RecordPeopleCodeBrowserView();
-            PageView = new PagePeopleCodeBrowserView();
-            ComponentView = new ComponentPeopleCodeBrowserView();
+            AllObjectsView = new AllObjectsPeopleCodeBrowserView(detachedSourceWindowManager);
+            AppEngineView = new AppEnginePlaceholderView(detachedSourceWindowManager);
+            AppPackageView = new AppPackageBrowserView(detachedSourceWindowManager);
+            RecordView = new RecordPeopleCodeBrowserView(detachedSourceWindowManager);
+            PageView = new PagePeopleCodeBrowserView(detachedSourceWindowManager);
+            ComponentView = new ComponentPeopleCodeBrowserView(detachedSourceWindowManager);
             AppPackageView.SetStatusStore(StatusStore);
             AppEngineView.SetStatusStore(StatusStore);
             RecordView.SetStatusStore(StatusStore);

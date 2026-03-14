@@ -21,6 +21,7 @@ public sealed class AppPackageBrowserView : UserControl
     private const int GlobalSearchResultLimit = 200;
 
     private readonly AppPackageBrowserService _browserService = new();
+    private readonly DetachedSourceWindowManager _detachedSourceWindowManager;
     private readonly List<string> _allPackageRoots = [];
     private readonly List<AppPackageEntry> _allEntries = [];
     private readonly ObservableCollection<AppPackageEntry> _filteredEntries = [];
@@ -45,6 +46,7 @@ public sealed class AppPackageBrowserView : UserControl
     private readonly TextBlock _selectedEntryTypeTextBlock;
     private readonly TextBlock _metadataLastUpdatedTextBlock;
     private readonly TextBlock _metadataSummaryTextBlock;
+    private readonly Button _openDetachedSourceButton;
     private readonly Button _previousSourceMatchButton;
     private readonly Button _nextSourceMatchButton;
     private readonly TextBlock _sourceMatchStatusTextBlock;
@@ -63,11 +65,13 @@ public sealed class AppPackageBrowserView : UserControl
     private string _activeGlobalSearchText = string.Empty;
     private string _currentSourceText = string.Empty;
     private bool _currentSourceUsesSyntaxHighlighting;
+    private bool _hasLoadedSelectedSource;
     private IReadOnlyList<TextRange> _currentSourceMatchRanges = Array.Empty<TextRange>();
     private int _activeSourceMatchIndex = -1;
 
-    public AppPackageBrowserView()
+    public AppPackageBrowserView(DetachedSourceWindowManager detachedSourceWindowManager)
     {
+        _detachedSourceWindowManager = detachedSourceWindowManager;
         _refreshButton = new Button
         {
             Content = "Refresh",
@@ -172,6 +176,14 @@ public sealed class AppPackageBrowserView : UserControl
         {
             TextWrapping = TextWrapping.WrapWholeWords
         };
+
+        _openDetachedSourceButton = new Button
+        {
+            Content = "Open",
+            IsEnabled = false
+        };
+        ToolTipService.SetToolTip(_openDetachedSourceButton, "Open in new window");
+        _openDetachedSourceButton.Click += OpenDetachedSourceButton_Click;
 
         _previousSourceMatchButton = new Button
         {
@@ -341,14 +353,17 @@ public sealed class AppPackageBrowserView : UserControl
         sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        sourceHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         TextBlock sourceTitle = new() { Text = "PeopleCode Source" };
         sourceTitle.Style = Application.Current.Resources["SubtitleTextBlockStyle"] as Style;
         sourceHeaderGrid.Children.Add(sourceTitle);
-        Grid.SetColumn(_sourceMatchStatusTextBlock, 1);
+        Grid.SetColumn(_openDetachedSourceButton, 1);
+        sourceHeaderGrid.Children.Add(_openDetachedSourceButton);
+        Grid.SetColumn(_sourceMatchStatusTextBlock, 2);
         sourceHeaderGrid.Children.Add(_sourceMatchStatusTextBlock);
-        Grid.SetColumn(_previousSourceMatchButton, 2);
+        Grid.SetColumn(_previousSourceMatchButton, 3);
         sourceHeaderGrid.Children.Add(_previousSourceMatchButton);
-        Grid.SetColumn(_nextSourceMatchButton, 3);
+        Grid.SetColumn(_nextSourceMatchButton, 4);
         sourceHeaderGrid.Children.Add(_nextSourceMatchButton);
         sourceGrid.Children.Add(sourceHeaderGrid);
         Grid.SetRow(_sourceScrollViewer, 1);
@@ -516,10 +531,22 @@ public sealed class AppPackageBrowserView : UserControl
         NavigateCurrentSourceMatch(1);
     }
 
+    private void OpenDetachedSourceButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!CanOpenDetachedSource())
+        {
+            return;
+        }
+
+        _detachedSourceWindowManager.Open(BuildDetachedSourceContext());
+    }
+
     private async void EntriesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         _selectedEntry = _entriesListView.SelectedItem as AppPackageEntry;
         int sourceLoadVersion = ++_sourceLoadVersion;
+        _hasLoadedSelectedSource = false;
+        UpdateDetachedSourceChrome();
         SetMetadata(_selectedEntry);
 
         if (_selectedEntry is null || _session is null)
@@ -545,6 +572,7 @@ public sealed class AppPackageBrowserView : UserControl
             return;
         }
 
+        _hasLoadedSelectedSource = true;
         SetSourceViewerText(
             string.IsNullOrWhiteSpace(result.SourceText)
             ? "No PeopleCode source text was returned for this entry."
@@ -570,6 +598,7 @@ public sealed class AppPackageBrowserView : UserControl
         _filteredEntries.Clear();
         _allEntries.Clear();
         _selectedEntry = null;
+        _hasLoadedSelectedSource = false;
         _globalSearchVersion++;
         _sourceLoadVersion++;
         _packageSearchTextBox.Text = string.Empty;
@@ -698,6 +727,7 @@ public sealed class AppPackageBrowserView : UserControl
         {
             _selectedEntry = null;
             _sourceLoadVersion++;
+            _hasLoadedSelectedSource = false;
             SetSourceViewerText(string.Empty, useSyntaxHighlighting: false);
             SetMetadata(null);
         }
@@ -934,6 +964,8 @@ public sealed class AppPackageBrowserView : UserControl
         {
             _sourceScrollViewer.ChangeView(0, 0, null, true);
         }
+
+        UpdateDetachedSourceChrome();
     }
 
     private void RefreshSourceViewerFormatting()
@@ -1116,6 +1148,30 @@ public sealed class AppPackageBrowserView : UserControl
             parts
                 .Where(part => !string.IsNullOrWhiteSpace(part.Value))
                 .Select(part => $"{part.Label}={part.Value}"));
+    }
+
+    private bool CanOpenDetachedSource()
+    {
+        return _selectedEntry is not null && _hasLoadedSelectedSource;
+    }
+
+    private void UpdateDetachedSourceChrome()
+    {
+        _openDetachedSourceButton.IsEnabled = CanOpenDetachedSource();
+    }
+
+    private DetachedPeopleCodeSourceContext BuildDetachedSourceContext()
+    {
+        return DetachedPeopleCodeSourceContextFactory.Create(
+            _session,
+            "App Package",
+            _selectedEntryTitleTextBlock.Text,
+            _selectedEntryTypeTextBlock.Text,
+            _metadataSummaryTextBlock.Text,
+            _metadataLastUpdatedTextBlock.Text,
+            _currentSourceText,
+            _isGlobalSearchMode ? _activeGlobalSearchText : null,
+            _currentSourceUsesSyntaxHighlighting);
     }
 
     private sealed class EntryIdentityComparer : IEqualityComparer<AppPackageEntry>
