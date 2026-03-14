@@ -14,13 +14,36 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Spacing="4">
-            <TextBlock Text="PeopleCode Interface"
-                       Style="{ThemeResource TitleTextBlockStyle}" />
-            <TextBlock x:Name="ModeSummaryTextBlock"
-                       TextWrapping="WrapWholeWords"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-        </StackPanel>
+        <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="PeopleCode Interface"
+                           Style="{ThemeResource TitleTextBlockStyle}" />
+                <TextBlock x:Name="ModeTitleTextBlock"
+                           Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Name="ModeSummaryTextBlock"
+                           TextWrapping="WrapWholeWords"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1"
+                        Spacing="6"
+                        HorizontalAlignment="Right">
+                <TextBlock Text="Object type"
+                           Style="{ThemeResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <ComboBox x:Name="ObjectTypeComboBox"
+                          Width="180"
+                          SelectionChanged="ObjectTypeComboBox_SelectionChanged">
+                    <x:String>App Package</x:String>
+                    <x:String>App Engine</x:String>
+                </ComboBox>
+            </StackPanel>
+        </Grid>
 
         <ContentControl Grid.Row="1"
                         x:Name="ModeContentHost" />

@@ -23,10 +23,8 @@ public sealed partial class MainShellView : UserControl
     {
         _peopleCodeInterfaceView.SetSession(session);
         _peopleCodeInterfaceView.ShowAppPackage();
-        AppPackageNavigationItem.IsEnabled = true;
-        PeopleCodeInterfaceNavigationItem.IsExpanded = true;
         ContentHost.Content = _peopleCodeInterfaceView;
-        AppNavigationView.SelectedItem = AppPackageNavigationItem;
+        AppNavigationView.SelectedItem = PeopleCodeInterfaceNavigationItem;
     }
 
     private void AppNavigationView_SelectionChanged(
@@ -41,24 +39,9 @@ public sealed partial class MainShellView : UserControl
         ContentHost.Content = destination switch
         {
             "OracleConnection" => _oracleConnectionView,
-            "PeopleCodeInterface.AppPackage" => ShowPeopleCodeInterfaceAppPackage(),
-            "PeopleCodeInterface.AppEngine" => ShowPeopleCodeInterfaceAppEngine(),
+            "PeopleCodeInterface" => _peopleCodeInterfaceView,
             "ReferenceExplorer" => _referenceExplorerView,
             _ => _referenceExplorerView
         };
-    }
-
-    private PeopleCodeInterfaceView ShowPeopleCodeInterfaceAppPackage()
-    {
-        PeopleCodeInterfaceNavigationItem.IsExpanded = true;
-        _peopleCodeInterfaceView.ShowAppPackage();
-        return _peopleCodeInterfaceView;
-    }
-
-    private PeopleCodeInterfaceView ShowPeopleCodeInterfaceAppEngine()
-    {
-        PeopleCodeInterfaceNavigationItem.IsExpanded = true;
-        _peopleCodeInterfaceView.ShowAppEngine();
-        return _peopleCodeInterfaceView;
     }
 }
