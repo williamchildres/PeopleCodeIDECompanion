@@ -25,6 +25,7 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
     private readonly ObservableCollection<RecordPeopleCodeSourceSearchMatch> _globalSearchResults = [];
 
     private OracleConnectionSession? _session;
+    private PeopleCodeObjectStatusStore? _statusStore;
     private RecordPeopleCodeItem? _selectedItem;
     private int _globalSearchVersion;
     private int _sourceLoadVersion;
@@ -50,7 +51,18 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
         _session = session;
         RefreshButton.IsEnabled = true;
         GlobalSourceSearchButton.IsEnabled = true;
+        _statusStore?.SetSessionAvailable(AllObjectsPeopleCodeBrowserService.RecordMode, hasSession: true);
         _ = LoadItemsAsync();
+    }
+
+    public void SetStatusStore(PeopleCodeObjectStatusStore statusStore)
+    {
+        _statusStore = statusStore;
+    }
+
+    public Task RefreshAsync()
+    {
+        return LoadItemsAsync();
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
@@ -155,6 +167,7 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
             return;
         }
 
+        _statusStore?.MarkLoading(AllObjectsPeopleCodeBrowserService.RecordMode);
         InlineErrorInfoBar.IsOpen = false;
         GlobalSearchErrorInfoBar.IsOpen = false;
         _allItems.Clear();
@@ -174,6 +187,7 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
         RecordPeopleCodeBrowseResult result = await _browserService.GetItemsAsync(_session.Options);
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
+            _statusStore?.MarkError(AllObjectsPeopleCodeBrowserService.RecordMode);
             MetadataSummaryTextBlock.Text = "Record PeopleCode metadata could not be loaded.";
             InlineErrorInfoBar.Message = result.ErrorMessage;
             InlineErrorInfoBar.IsOpen = true;
@@ -191,6 +205,8 @@ public sealed partial class RecordPeopleCodeBrowserView : UserControl
             MetadataSummaryTextBlock.Text =
                 "No Record PeopleCode rows were returned for the current read-only subset. This browser currently reads field-event PeopleCode from PSPCMTXT/PSPCMPROG where OBJECTID1=1, OBJECTID2=2, and OBJECTID3=12.";
         }
+
+        _statusStore?.MarkLoaded(AllObjectsPeopleCodeBrowserService.RecordMode);
     }
 
     private void ApplyRecordFilter()

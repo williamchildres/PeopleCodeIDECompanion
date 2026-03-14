@@ -7,33 +7,69 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <NavigationView x:Name="AppNavigationView"
-                    IsBackButtonVisible="Collapsed"
-                    IsSettingsVisible="False"
-                    PaneDisplayMode="Left"
-                    SelectionChanged="AppNavigationView_SelectionChanged">
-        <NavigationView.MenuItems>
-            <NavigationViewItem Content="Oracle Connection"
-                                Tag="OracleConnection">
-                <NavigationViewItem.Icon>
-                    <SymbolIcon Symbol="World" />
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Name="PeopleCodeInterfaceNavigationItem"
-                                Content="PeopleCode Interface"
-                                Tag="PeopleCodeInterface">
-                <NavigationViewItem.Icon>
-                    <SymbolIcon Symbol="Document" />
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem Content="Reference Explorer"
-                                Tag="ReferenceExplorer">
-                <NavigationViewItem.Icon>
-                    <SymbolIcon Symbol="Library" />
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-        </NavigationView.MenuItems>
+    <Grid>
+        <NavigationView x:Name="AppNavigationView"
+                        IsBackButtonVisible="Collapsed"
+                        IsSettingsVisible="False"
+                        PaneDisplayMode="Left"
+                        SelectionChanged="AppNavigationView_SelectionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="OracleConnectionNavigationItem"
+                                    Content="Oracle Connection"
+                                    Tag="OracleConnection">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="World" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="PeopleCodeInterfaceNavigationItem"
+                                    Content="PeopleCode Interface"
+                                    Tag="PeopleCodeInterface">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Document" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="ReferenceExplorerNavigationItem"
+                                    Content="Reference Explorer"
+                                    Tag="ReferenceExplorer">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Library" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
 
-        <ContentControl x:Name="ContentHost" />
-    </NavigationView>
+            <ContentControl x:Name="ContentHost" />
+        </NavigationView>
+
+        <Border x:Name="ExpandedObjectStatusBorder"
+                Width="296"
+                Margin="12,68,0,12"
+                Padding="12"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+            <StackPanel Spacing="10">
+                <TextBlock Text="Object Status"
+                           Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                <StackPanel x:Name="ObjectStatusPanel"
+                            Spacing="6" />
+            </StackPanel>
+        </Border>
+
+        <Border x:Name="CompactObjectStatusBorder"
+                Margin="4,68,0,12"
+                Padding="4"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="18"
+                Visibility="Collapsed">
+            <StackPanel x:Name="CompactObjectStatusPanel"
+                        Spacing="4" />
+        </Border>
+    </Grid>
 </UserControl>

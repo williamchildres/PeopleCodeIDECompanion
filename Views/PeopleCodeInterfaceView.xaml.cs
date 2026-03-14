@@ -1,6 +1,8 @@
 using Microsoft.UI.Xaml.Controls;
 using PeopleCodeIDECompanion.Models;
 using PeopleCodeIDECompanion.Services;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace PeopleCodeIDECompanion.Views;
 
@@ -19,22 +21,44 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     private readonly RecordPeopleCodeBrowserView _recordView = new();
     private readonly PagePeopleCodeBrowserView _pageView = new();
     private readonly ComponentPeopleCodeBrowserView _componentView = new();
+    private readonly PeopleCodeObjectStatusStore _objectStatusStore = new();
     private bool _isUpdatingModeSelection;
 
     public PeopleCodeInterfaceView()
     {
         InitializeComponent();
+        _appPackageView.SetStatusStore(_objectStatusStore);
+        _appEngineView.SetStatusStore(_objectStatusStore);
+        _recordView.SetStatusStore(_objectStatusStore);
+        _pageView.SetStatusStore(_objectStatusStore);
+        _componentView.SetStatusStore(_objectStatusStore);
         ShowAppPackage();
     }
 
+    public IReadOnlyList<PeopleCodeObjectStatusItem> ObjectStatuses => _objectStatusStore.Items;
+
     public void SetSession(OracleConnectionSession session)
     {
+        _objectStatusStore.ResetAll();
         _allObjectsView.SetSession(session);
         _appPackageView.SetSession(session);
         _appEngineView.SetSession(session);
         _recordView.SetSession(session);
         _pageView.SetSession(session);
         _componentView.SetSession(session);
+    }
+
+    public Task RefreshObjectTypeAsync(string objectType)
+    {
+        return objectType switch
+        {
+            AppPackageMode => _appPackageView.RefreshAsync(),
+            AppEngineMode => _appEngineView.RefreshAsync(),
+            RecordMode => _recordView.RefreshAsync(),
+            PageMode => _pageView.RefreshAsync(),
+            ComponentMode => _componentView.RefreshAsync(),
+            _ => Task.CompletedTask
+        };
     }
 
     public void ShowAppPackage()

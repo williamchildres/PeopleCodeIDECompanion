@@ -25,6 +25,7 @@ public sealed partial class AppEnginePlaceholderView : UserControl
     private readonly ObservableCollection<AppEngineSourceSearchMatch> _globalSearchResults = [];
 
     private OracleConnectionSession? _session;
+    private PeopleCodeObjectStatusStore? _statusStore;
     private AppEngineItem? _selectedItem;
     private int _globalSearchVersion;
     private int _sourceLoadVersion;
@@ -50,7 +51,18 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         _session = session;
         RefreshButton.IsEnabled = true;
         GlobalSourceSearchButton.IsEnabled = true;
+        _statusStore?.SetSessionAvailable(AllObjectsPeopleCodeBrowserService.AppEngineMode, hasSession: true);
         _ = LoadItemsAsync();
+    }
+
+    public void SetStatusStore(PeopleCodeObjectStatusStore statusStore)
+    {
+        _statusStore = statusStore;
+    }
+
+    public Task RefreshAsync()
+    {
+        return LoadItemsAsync();
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
@@ -155,6 +167,7 @@ public sealed partial class AppEnginePlaceholderView : UserControl
             return;
         }
 
+        _statusStore?.MarkLoading(AllObjectsPeopleCodeBrowserService.AppEngineMode);
         InlineErrorInfoBar.IsOpen = false;
         GlobalSearchErrorInfoBar.IsOpen = false;
         _allItems.Clear();
@@ -174,6 +187,7 @@ public sealed partial class AppEnginePlaceholderView : UserControl
         AppEngineBrowseResult result = await _browserService.GetItemsAsync(_session.Options);
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
+            _statusStore?.MarkError(AllObjectsPeopleCodeBrowserService.AppEngineMode);
             MetadataSummaryTextBlock.Text = "App Engine metadata could not be loaded.";
             InlineErrorInfoBar.Message = result.ErrorMessage;
             InlineErrorInfoBar.IsOpen = true;
@@ -191,6 +205,8 @@ public sealed partial class AppEnginePlaceholderView : UserControl
             MetadataSummaryTextBlock.Text =
                 "No App Engine PeopleCode rows were returned for the current read-only subset. This browser assumes OBJECTVALUE1..7 map to Program / Section / Market / DB Type / EffDt / Step / Action for OBJECTID1 = 66.";
         }
+
+        _statusStore?.MarkLoaded(AllObjectsPeopleCodeBrowserService.AppEngineMode);
     }
 
     private void ApplyProgramFilter()

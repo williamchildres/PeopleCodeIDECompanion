@@ -25,6 +25,7 @@ public sealed partial class ComponentPeopleCodeBrowserView : UserControl
     private readonly ObservableCollection<ComponentPeopleCodeSourceSearchMatch> _globalSearchResults = [];
 
     private OracleConnectionSession? _session;
+    private PeopleCodeObjectStatusStore? _statusStore;
     private ComponentPeopleCodeItem? _selectedItem;
     private int _globalSearchVersion;
     private int _sourceLoadVersion;
@@ -50,7 +51,18 @@ public sealed partial class ComponentPeopleCodeBrowserView : UserControl
         _session = session;
         RefreshButton.IsEnabled = true;
         GlobalSourceSearchButton.IsEnabled = true;
+        _statusStore?.SetSessionAvailable(AllObjectsPeopleCodeBrowserService.ComponentMode, hasSession: true);
         _ = LoadItemsAsync();
+    }
+
+    public void SetStatusStore(PeopleCodeObjectStatusStore statusStore)
+    {
+        _statusStore = statusStore;
+    }
+
+    public Task RefreshAsync()
+    {
+        return LoadItemsAsync();
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
@@ -155,6 +167,7 @@ public sealed partial class ComponentPeopleCodeBrowserView : UserControl
             return;
         }
 
+        _statusStore?.MarkLoading(AllObjectsPeopleCodeBrowserService.ComponentMode);
         InlineErrorInfoBar.IsOpen = false;
         GlobalSearchErrorInfoBar.IsOpen = false;
         _allItems.Clear();
@@ -174,6 +187,7 @@ public sealed partial class ComponentPeopleCodeBrowserView : UserControl
         ComponentPeopleCodeBrowseResult result = await _browserService.GetItemsAsync(_session.Options);
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
+            _statusStore?.MarkError(AllObjectsPeopleCodeBrowserService.ComponentMode);
             MetadataSummaryTextBlock.Text = "Component PeopleCode metadata could not be loaded.";
             InlineErrorInfoBar.Message = result.ErrorMessage;
             InlineErrorInfoBar.IsOpen = true;
@@ -191,6 +205,8 @@ public sealed partial class ComponentPeopleCodeBrowserView : UserControl
             MetadataSummaryTextBlock.Text =
                 "No Component PeopleCode rows were returned for the verified read-only subset. Current Component mode reads PSPCMTXT/PSPCMPROG rows where OBJECTID1=10, OBJECTID2=39, OBJECTID3=1, OBJECTID4=12, and OBJECTID5-7 are 0, mapping OBJECTVALUE1-4 to Component / Market / Item / Event.";
         }
+
+        _statusStore?.MarkLoaded(AllObjectsPeopleCodeBrowserService.ComponentMode);
     }
 
     private void ApplyComponentFilter()

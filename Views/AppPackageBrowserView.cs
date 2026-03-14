@@ -51,6 +51,7 @@ public sealed class AppPackageBrowserView : UserControl
     private readonly ScrollViewer _sourceScrollViewer;
 
     private OracleConnectionSession? _session;
+    private PeopleCodeObjectStatusStore? _statusStore;
     private AppPackageEntry? _selectedEntry;
     private int _globalSearchVersion;
     private int _sourceLoadVersion;
@@ -210,7 +211,18 @@ public sealed class AppPackageBrowserView : UserControl
         _session = session;
         _refreshButton.IsEnabled = true;
         _globalSourceSearchButton.IsEnabled = true;
+        _statusStore?.SetSessionAvailable(AllObjectsPeopleCodeBrowserService.AppPackageMode, hasSession: true);
         _ = LoadEntriesAsync();
+    }
+
+    public void SetStatusStore(PeopleCodeObjectStatusStore statusStore)
+    {
+        _statusStore = statusStore;
+    }
+
+    public Task RefreshAsync()
+    {
+        return LoadEntriesAsync();
     }
 
     private UIElement BuildLayout()
@@ -493,6 +505,7 @@ public sealed class AppPackageBrowserView : UserControl
             return;
         }
 
+        _statusStore?.MarkLoading(AllObjectsPeopleCodeBrowserService.AppPackageMode);
         _inlineErrorInfoBar.IsOpen = false;
         SetSourceViewerText(string.Empty, useSyntaxHighlighting: false);
         _allPackageRoots.Clear();
@@ -518,6 +531,7 @@ public sealed class AppPackageBrowserView : UserControl
 
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
+            _statusStore?.MarkError(AllObjectsPeopleCodeBrowserService.AppPackageMode);
             _metadataSummaryTextBlock.Text = "App Package metadata could not be loaded.";
             _inlineErrorInfoBar.Message = result.ErrorMessage;
             _inlineErrorInfoBar.IsOpen = true;
@@ -546,6 +560,8 @@ public sealed class AppPackageBrowserView : UserControl
         {
             _metadataSummaryTextBlock.Text = "No App Package rows were returned from PSPCMTXT.";
         }
+
+        _statusStore?.MarkLoaded(AllObjectsPeopleCodeBrowserService.AppPackageMode);
     }
 
     private void ApplyPackageSearchFilter()
