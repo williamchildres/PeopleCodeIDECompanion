@@ -15,7 +15,7 @@ public sealed partial class MainWindow : Window
         Title = BaseTitle;
     }
 
-    public void UpdateConnectionTitle(OracleConnectionSession? session)
+    public void UpdateConnectionTitle(OracleConnectionSession? session, int activeSessionCount = 0)
     {
         if (session is null)
         {
@@ -26,6 +26,10 @@ public sealed partial class MainWindow : Window
         string profilePart = string.IsNullOrWhiteSpace(session.DisplayName)
             ? "Connected"
             : $"Connected with profile {session.DisplayName}";
+        if (activeSessionCount > 1)
+        {
+            profilePart += $" ({activeSessionCount} active)";
+        }
         string endpoint = $"{session.Options.Host}:{session.Options.Port}/{session.Options.ServiceName}";
         string fullTitle = $"{BaseTitle} - {profilePart} as {session.Options.Username} to {endpoint}";
 

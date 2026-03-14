@@ -37,7 +37,21 @@
                 </NavigationViewItem>
             </NavigationView.MenuItems>
 
-            <ContentControl x:Name="ContentHost" />
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <InfoBar x:Name="ShellInfoBar"
+                         Margin="12,12,12,0"
+                         IsOpen="False"
+                         IsClosable="True"
+                         Severity="Warning" />
+
+                <ContentControl Grid.Row="1"
+                                x:Name="ContentHost" />
+            </Grid>
         </NavigationView>
 
         <Border x:Name="ExpandedObjectStatusBorder"

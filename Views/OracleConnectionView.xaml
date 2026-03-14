@@ -71,11 +71,17 @@
                              PlaceholderText="HR Demo"
                              TextChanged="ConnectionInputChanged" />
 
-                    <Button Grid.Row="1"
-                            Grid.Column="1"
-                            Grid.ColumnSpan="2"
-                            Content="Save Current"
-                            Click="SaveConnectionButton_Click" />
+                    <StackPanel Grid.Row="1"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="2"
+                                Spacing="8">
+                        <ToggleSwitch x:Name="AutoLoginToggleSwitch"
+                                      Header="Auto Login"
+                                      OffContent="Off"
+                                      OnContent="On" />
+                        <Button Content="Save Current"
+                                Click="SaveConnectionButton_Click" />
+                    </StackPanel>
                 </Grid>
             </Border>
 

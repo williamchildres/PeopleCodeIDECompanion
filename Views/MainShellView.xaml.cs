@@ -1,30 +1,45 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using PeopleCodeIDECompanion.Models;
 using PeopleCodeIDECompanion.Services;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.ComponentModel;
 
 namespace PeopleCodeIDECompanion.Views;
 
 public sealed partial class MainShellView : UserControl
 {
-    private readonly PeopleCodeInterfaceView _peopleCodeInterfaceView = new();
-    private readonly OracleConnectionView _oracleConnectionView = new();
+    private readonly OracleSessionManager _sessionManager = new();
+    private readonly SavedOracleConnectionStore _savedConnectionStore = new();
+    private readonly SecureCredentialStore _secureCredentialStore = new();
+    private readonly OracleConnectionTester _connectionTester = new();
+    private readonly PeopleCodeInterfaceView _peopleCodeInterfaceView;
+    private readonly OracleConnectionView _oracleConnectionView;
     private readonly ReferenceExplorerView _referenceExplorerView = new();
     private readonly long _isPaneOpenCallbackToken;
+    private INotifyCollectionChanged? _currentStatusCollection;
+    private readonly List<PeopleCodeObjectStatusItem> _trackedStatuses = [];
 
     public MainShellView()
     {
         InitializeComponent();
 
+        _peopleCodeInterfaceView = new PeopleCodeInterfaceView(_sessionManager);
+        _oracleConnectionView = new OracleConnectionView();
         _oracleConnectionView.BrowserRequested += OracleConnectionView_BrowserRequested;
+        _oracleConnectionView.ProfileSaved += OracleConnectionView_ProfileSaved;
+        _oracleConnectionView.ProfileDeleted += OracleConnectionView_ProfileDeleted;
+        _peopleCodeInterfaceView.ActiveWorkspaceChanged += PeopleCodeInterfaceView_ActiveWorkspaceChanged;
         BuildObjectStatusPanel();
+
         _isPaneOpenCallbackToken = AppNavigationView.RegisterPropertyChangedCallback(
             NavigationView.IsPaneOpenProperty,
             (_, _) => UpdatePaneFooterLayout());
+        Loaded += MainShellView_Loaded;
         Unloaded += MainShellView_Unloaded;
         UpdatePaneFooterLayout();
 
@@ -34,16 +49,66 @@ public sealed partial class MainShellView : UserControl
 
     public IReadOnlyList<PeopleCodeObjectStatusItem> ObjectStatuses => _peopleCodeInterfaceView.ObjectStatuses;
 
-    private void OracleConnectionView_BrowserRequested(object? sender, OracleConnectionSession session)
+    private async void MainShellView_Loaded(object sender, RoutedEventArgs e)
     {
-        _peopleCodeInterfaceView.SetSession(session);
-        _peopleCodeInterfaceView.ShowAppPackage();
+        Loaded -= MainShellView_Loaded;
+        await AutoLoginAsync();
+    }
+
+    private async void OracleConnectionView_BrowserRequested(object? sender, OracleConnectionSession session)
+    {
+        _sessionManager.AddOrUpdate(session);
+        _peopleCodeInterfaceView.TrackSession(session);
+        await UpdateLastConnectedAsync(session);
+        _peopleCodeInterfaceView.ClearWarning();
+        ShellInfoBar.IsOpen = false;
+        NavigateToPeopleCodeInterface();
+    }
+
+    private void OracleConnectionView_ProfileSaved(object? sender, ProfileSavedEventArgs args)
+    {
+        OracleConnectionSession? promotedSession = null;
+        if (!string.IsNullOrWhiteSpace(args.PreviousSessionProfileId))
+        {
+            promotedSession = _sessionManager.PromoteSession(args.PreviousSessionProfileId, args.Profile);
+        }
+
+        OracleConnectionSession? trackedSession = promotedSession;
+        if (trackedSession is null && args.SavedSession is not null)
+        {
+            _sessionManager.AddOrUpdate(args.SavedSession, selectSession: false);
+            trackedSession = args.SavedSession;
+        }
+
+        if (trackedSession is not null)
+        {
+            _peopleCodeInterfaceView.TrackSession(trackedSession);
+            if (App.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.UpdateConnectionTitle(_sessionManager.SelectedSession, _sessionManager.Sessions.Count);
+            }
+        }
+    }
+
+    private void OracleConnectionView_ProfileDeleted(object? sender, ProfileDeletedEventArgs args)
+    {
+        if (_sessionManager.RemoveSession(args.ProfileId))
+        {
+            _peopleCodeInterfaceView.RefreshSessions();
+            if (App.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.UpdateConnectionTitle(_sessionManager.SelectedSession, _sessionManager.Sessions.Count);
+            }
+        }
+    }
+
+    private void PeopleCodeInterfaceView_ActiveWorkspaceChanged(object? sender, EventArgs e)
+    {
+        RebindStatusSubscriptions();
         if (App.MainWindow is MainWindow mainWindow)
         {
-            mainWindow.UpdateConnectionTitle(session);
+            mainWindow.UpdateConnectionTitle(_sessionManager.SelectedSession, _sessionManager.Sessions.Count);
         }
-        ContentHost.Content = _peopleCodeInterfaceView;
-        AppNavigationView.SelectedItem = PeopleCodeInterfaceNavigationItem;
     }
 
     private void AppNavigationView_SelectionChanged(
@@ -58,7 +123,7 @@ public sealed partial class MainShellView : UserControl
         NavigateTo(destination);
     }
 
-    private async void ObjectStatusRefreshButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    private async void ObjectStatusRefreshButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string objectType })
         {
@@ -79,20 +144,43 @@ public sealed partial class MainShellView : UserControl
             UpdateStatusRow(row, status);
             Button compactButton = CreateCompactStatusButton(status);
             UpdateCompactStatusButton(compactButton, status);
-            status.PropertyChanged += StatusItem_PropertyChanged;
             ObjectStatusPanel.Children.Add(row.Root);
             CompactObjectStatusPanel.Children.Add(compactButton);
         }
+    }
 
-        if (_peopleCodeInterfaceView.ObjectStatuses is INotifyCollectionChanged collectionChanged)
+    private void RebindStatusSubscriptions()
+    {
+        if (_currentStatusCollection is not null)
         {
-            collectionChanged.CollectionChanged += ObjectStatuses_CollectionChanged;
+            _currentStatusCollection.CollectionChanged -= ObjectStatuses_CollectionChanged;
         }
+
+        foreach (PeopleCodeObjectStatusItem status in _trackedStatuses)
+        {
+            status.PropertyChanged -= StatusItem_PropertyChanged;
+        }
+
+        _trackedStatuses.Clear();
+        _currentStatusCollection = ObjectStatuses as INotifyCollectionChanged;
+        if (_currentStatusCollection is not null)
+        {
+            _currentStatusCollection.CollectionChanged += ObjectStatuses_CollectionChanged;
+        }
+
+        foreach (PeopleCodeObjectStatusItem status in ObjectStatuses)
+        {
+            status.PropertyChanged += StatusItem_PropertyChanged;
+            _trackedStatuses.Add(status);
+        }
+
+        BuildObjectStatusPanel();
+        UpdatePaneFooterLayout();
     }
 
     private void ObjectStatuses_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        BuildObjectStatusPanel();
+        RebindStatusSubscriptions();
     }
 
     private void StatusItem_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -236,6 +324,12 @@ public sealed partial class MainShellView : UserControl
         };
     }
 
+    private void NavigateToPeopleCodeInterface()
+    {
+        NavigateTo("PeopleCodeInterface");
+        AppNavigationView.SelectedItem = PeopleCodeInterfaceNavigationItem;
+    }
+
     private static void UpdateCompactStatusButton(Button button, PeopleCodeObjectStatusItem status)
     {
         button.IsEnabled = status.CanRefresh;
@@ -254,6 +348,83 @@ public sealed partial class MainShellView : UserControl
         _ => "\uE72C"
     };
 
+    private async System.Threading.Tasks.Task AutoLoginAsync()
+    {
+        IReadOnlyList<SavedOracleConnectionProfile> profiles = await _savedConnectionStore.LoadAsync();
+        List<string> failures = [];
+        int successCount = 0;
+
+        foreach (SavedOracleConnectionProfile profile in profiles.Where(savedProfile => savedProfile.AutoLoginEnabled))
+        {
+            string? password = await _secureCredentialStore.LoadPasswordAsync(profile.CredentialTargetId);
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                failures.Add($"{profile.DisplayName}: no stored password was available.");
+                continue;
+            }
+
+            OracleConnectionOptions options = new()
+            {
+                Host = profile.Host,
+                Port = profile.Port,
+                ServiceName = profile.ServiceName,
+                Username = profile.Username,
+                Password = password
+            };
+
+            OracleConnectionTestResult result = await _connectionTester.TestConnectionAsync(options);
+            if (!result.IsSuccess)
+            {
+                failures.Add($"{profile.DisplayName}: {result.Details}");
+                continue;
+            }
+
+            OracleConnectionSession session = new()
+            {
+                ProfileId = profile.ProfileId,
+                DisplayName = profile.DisplayName,
+                CredentialTargetId = profile.CredentialTargetId,
+                Options = options
+            };
+
+            _sessionManager.AddOrUpdate(session, selectSession: successCount == 0);
+            await UpdateLastConnectedAsync(session);
+            successCount++;
+        }
+
+        if (successCount > 0)
+        {
+            _peopleCodeInterfaceView.RefreshSessions();
+            NavigateToPeopleCodeInterface();
+        }
+
+        if (failures.Count > 0)
+        {
+            string failureMessage = "Auto-login could not connect: " + string.Join(" | ", failures);
+            ShellInfoBar.Message = failureMessage;
+            ShellInfoBar.Severity = successCount > 0 ? InfoBarSeverity.Warning : InfoBarSeverity.Error;
+            ShellInfoBar.IsOpen = true;
+            _peopleCodeInterfaceView.ShowWarning(failureMessage);
+        }
+
+        if (App.MainWindow is MainWindow mainWindow)
+        {
+            mainWindow.UpdateConnectionTitle(_sessionManager.SelectedSession, _sessionManager.Sessions.Count);
+        }
+
+        RebindStatusSubscriptions();
+    }
+
+    private async System.Threading.Tasks.Task UpdateLastConnectedAsync(OracleConnectionSession session)
+    {
+        if (string.IsNullOrWhiteSpace(session.ProfileId))
+        {
+            return;
+        }
+
+        await _savedConnectionStore.UpdateLastConnectedAsync(session.ProfileId, DateTimeOffset.Now);
+    }
+
     private sealed record StatusRowControls(
         Grid Root,
         TextBlock NameTextBlock,
@@ -266,6 +437,21 @@ public sealed partial class MainShellView : UserControl
         AppNavigationView.UnregisterPropertyChangedCallback(
             NavigationView.IsPaneOpenProperty,
             _isPaneOpenCallbackToken);
+
+        if (_currentStatusCollection is not null)
+        {
+            _currentStatusCollection.CollectionChanged -= ObjectStatuses_CollectionChanged;
+        }
+
+        foreach (PeopleCodeObjectStatusItem status in _trackedStatuses)
+        {
+            status.PropertyChanged -= StatusItem_PropertyChanged;
+        }
+
+        _oracleConnectionView.BrowserRequested -= OracleConnectionView_BrowserRequested;
+        _oracleConnectionView.ProfileSaved -= OracleConnectionView_ProfileSaved;
+        _oracleConnectionView.ProfileDeleted -= OracleConnectionView_ProfileDeleted;
+        _peopleCodeInterfaceView.ActiveWorkspaceChanged -= PeopleCodeInterfaceView_ActiveWorkspaceChanged;
         Unloaded -= MainShellView_Unloaded;
     }
 }

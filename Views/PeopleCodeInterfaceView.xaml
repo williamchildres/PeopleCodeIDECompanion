@@ -11,6 +11,7 @@
           RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -23,6 +24,13 @@
             <StackPanel Spacing="4">
                 <TextBlock Text="PeopleCode Interface"
                            Style="{ThemeResource TitleTextBlockStyle}" />
+                <TextBlock x:Name="ActiveProfileSummaryTextBlock"
+                           Style="{ThemeResource BodyStrongTextBlockStyle}"
+                           TextWrapping="WrapWholeWords" />
+                <TextBlock x:Name="ConnectedProfilesSummaryTextBlock"
+                           Style="{ThemeResource CaptionTextBlockStyle}"
+                           TextWrapping="WrapWholeWords"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 <TextBlock x:Name="ModeSummaryTextBlock"
                            Style="{ThemeResource CaptionTextBlockStyle}"
                            TextWrapping="WrapWholeWords"
@@ -32,23 +40,49 @@
             <StackPanel Grid.Column="1"
                         Spacing="4"
                         HorizontalAlignment="Right">
-                <TextBlock Text="Object type"
-                           Style="{ThemeResource CaptionTextBlockStyle}"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <ComboBox x:Name="ObjectTypeComboBox"
-                          Width="180"
-                          SelectionChanged="ObjectTypeComboBox_SelectionChanged">
-                    <x:String>All Objects</x:String>
-                    <x:String>App Package</x:String>
-                    <x:String>App Engine</x:String>
-                    <x:String>Record</x:String>
-                    <x:String>Page</x:String>
-                    <x:String>Component</x:String>
-                </ComboBox>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Database profile"
+                                   Style="{ThemeResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <ComboBox x:Name="ProfileComboBox"
+                                  Width="220"
+                                  DisplayMemberPath="DisplayName"
+                                  SelectionChanged="ProfileComboBox_SelectionChanged" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1"
+                                Spacing="4">
+                        <TextBlock Text="Object type"
+                                   Style="{ThemeResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <ComboBox x:Name="ObjectTypeComboBox"
+                                  Width="180"
+                                  SelectionChanged="ObjectTypeComboBox_SelectionChanged">
+                            <x:String>All Objects</x:String>
+                            <x:String>App Package</x:String>
+                            <x:String>App Engine</x:String>
+                            <x:String>Record</x:String>
+                            <x:String>Page</x:String>
+                            <x:String>Component</x:String>
+                        </ComboBox>
+                    </StackPanel>
+                </Grid>
             </StackPanel>
         </Grid>
 
-        <ContentControl Grid.Row="1"
+        <InfoBar Grid.Row="1"
+                 x:Name="HeaderInfoBar"
+                 IsOpen="False"
+                 IsClosable="True"
+                 Severity="Warning" />
+
+        <ContentControl Grid.Row="2"
                         x:Name="ModeContentHost"
                         Margin="0,4,0,0" />
     </Grid>

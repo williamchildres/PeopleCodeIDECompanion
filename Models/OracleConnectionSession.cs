@@ -2,7 +2,11 @@ namespace PeopleCodeIDECompanion.Models;
 
 public sealed class OracleConnectionSession
 {
-    public string DisplayName { get; init; } = string.Empty;
+    public string ProfileId { get; set; } = string.Empty;
 
-    public OracleConnectionOptions Options { get; init; } = new();
+    public string DisplayName { get; set; } = string.Empty;
+
+    public string CredentialTargetId { get; set; } = string.Empty;
+
+    public OracleConnectionOptions Options { get; set; } = new();
 }
