@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="PeopleCodeIDECompanion.Views.ComponentPeopleCodeBrowserView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid RowSpacing="12"
+          ColumnSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+            <Button x:Name="RefreshButton"
+                    Content="Refresh"
+                    IsEnabled="False"
+                    Click="RefreshButton_Click" />
+        </StackPanel>
+
+        <InfoBar x:Name="InlineErrorInfoBar"
+                 Grid.Row="1"
+                 IsClosable="False"
+                 IsOpen="False"
+                 Severity="Error" />
+
+        <Grid Grid.Row="2"
+              ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240" />
+                <ColumnDefinition Width="340" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    MinHeight="420"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Components"
+                               Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                    <TextBox x:Name="ComponentSearchTextBox"
+                             Grid.Row="1"
+                             PlaceholderText="Search components or markets"
+                             TextChanged="ComponentSearchTextBox_TextChanged" />
+
+                    <ListView x:Name="ComponentsListView"
+                              Grid.Row="2"
+                              SelectionChanged="ComponentsListView_SelectionChanged"
+                              SelectionMode="Single"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Padding="8"
+                                            Spacing="4">
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                               TextWrapping="WrapWholeWords" />
+                                    <TextBlock Text="{Binding SecondaryLabel}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <TextBlock x:Name="NoComponentsTextBlock"
+                               Grid.Row="3"
+                               Visibility="Collapsed"
+                               Text="No components found."
+                               TextWrapping="WrapWholeWords"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1"
+                    MinHeight="420"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Component Items / Events"
+                               Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                    <TextBox x:Name="ItemSearchTextBox"
+                             Grid.Row="1"
+                             PlaceholderText="Search component records or events"
+                             TextChanged="ItemSearchTextBox_TextChanged" />
+
+                    <ListView x:Name="ItemsListView"
+                              Grid.Row="2"
+                              SelectionChanged="ItemsListView_SelectionChanged"
+                              SelectionMode="Single"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Padding="8"
+                                            Spacing="4">
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                               TextWrapping="WrapWholeWords" />
+                                    <TextBlock Text="{Binding SecondaryLabel}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <TextBlock x:Name="NoItemsTextBlock"
+                               Grid.Row="3"
+                               Visibility="Collapsed"
+                               Text="No items found."
+                               TextWrapping="WrapWholeWords"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="2"
+                  RowSpacing="16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="12">
+                    <Grid RowSpacing="8"
+                          ColumnSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="Global Source Search"
+                                   Grid.ColumnSpan="3"
+                                   Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                        <TextBox x:Name="GlobalSourceSearchTextBox"
+                                 Grid.Row="1"
+                                 PlaceholderText="Search PeopleCode source across the verified Component subset"
+                                 KeyDown="GlobalSourceSearchTextBox_KeyDown" />
+
+                        <Button x:Name="GlobalSourceSearchButton"
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Content="Search"
+                                IsEnabled="False"
+                                Click="GlobalSourceSearchButton_Click" />
+
+                        <Button x:Name="ClearGlobalSearchButton"
+                                Grid.Row="1"
+                                Grid.Column="2"
+                                Content="Clear"
+                                IsEnabled="False"
+                                Visibility="Collapsed"
+                                Click="ClearGlobalSearchButton_Click" />
+
+                        <InfoBar x:Name="GlobalSearchErrorInfoBar"
+                                 Grid.Row="2"
+                                 Grid.ColumnSpan="3"
+                                 IsClosable="False"
+                                 IsOpen="False"
+                                 Severity="Error" />
+
+                        <TextBlock x:Name="GlobalSearchStatusTextBlock"
+                                   Grid.Row="3"
+                                   Grid.ColumnSpan="3"
+                                   Visibility="Collapsed"
+                                   TextWrapping="WrapWholeWords"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                        <TextBlock x:Name="GlobalSearchLimitationTextBlock"
+                                   Grid.Row="4"
+                                   Grid.ColumnSpan="3"
+                                   TextWrapping="WrapWholeWords"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Text="This first Component browser version reads the verified Component subset from PSPCMTXT/PSPCMPROG where OBJECTID1=10, OBJECTID2=39, OBJECTID3=1, OBJECTID4=12, and OBJECTID5-7 are 0. It maps OBJECTVALUE1-4 to Component / Market / Item / Event." />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="1"
+                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="12">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Metadata"
+                                   Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Name="SelectedItemTitleTextBlock"
+                                   TextWrapping="WrapWholeWords"
+                                   Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                        <TextBlock x:Name="SelectedItemSubtitleTextBlock"
+                                   TextWrapping="WrapWholeWords" />
+                        <TextBlock x:Name="MetadataSummaryTextBlock"
+                                   TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="2"
+                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="12">
+                    <Grid RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Text="PeopleCode Source"
+                                       Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                            <TextBlock x:Name="SourceMatchStatusTextBlock"
+                                       Grid.Column="1"
+                                       VerticalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                            <Button x:Name="PreviousSourceMatchButton"
+                                    Grid.Column="2"
+                                    Content="Previous Match"
+                                    IsEnabled="False"
+                                    Click="PreviousSourceMatchButton_Click" />
+
+                            <Button x:Name="NextSourceMatchButton"
+                                    Grid.Column="3"
+                                    Content="Next Match"
+                                    IsEnabled="False"
+                                    Click="NextSourceMatchButton_Click" />
+                        </Grid>
+
+                        <ScrollViewer x:Name="SourceScrollViewer"
+                                      Grid.Row="1"
+                                      HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Auto">
+                            <RichTextBlock x:Name="SourceRichTextBlock"
+                                           MinHeight="300"
+                                           FontFamily="Consolas"
+                                           IsTextSelectionEnabled="True"
+                                           TextWrapping="NoWrap" />
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

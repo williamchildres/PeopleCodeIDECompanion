@@ -15,23 +15,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     private readonly AppPackageBrowserView _appPackageView = new();
     private readonly RecordPeopleCodeBrowserView _recordView = new();
     private readonly PagePeopleCodeBrowserView _pageView = new();
-    private readonly ReadOnlyPlaceholderModeView _componentView = new(
-        new PlaceholderModeConfiguration(
-            ModeTitle: "Component PeopleCode",
-            ModeSubtitle: "Component, page, and event browsing shell",
-            ModeDescription: "This placeholder keeps the intended Component browsing experience visible now, without adding new Oracle queries or writeback paths in this step.",
-            BrowsePaneTitle: "Components",
-            BrowseSearchPlaceholder: "Search components",
-            BrowsePaneSamples: ["JOB_DATA", "PERSONAL_DATA", "MY_WORKCENTER"],
-            BrowsePaneHint: "The left browse pane will list components available for read-only browsing.",
-            ChildPaneTitle: "Pages / Events",
-            ChildSearchPlaceholder: "Search pages, actions, or component events",
-            ChildPaneSamples: ["JOB_DATA.Activate", "JOB_DATA.SavePostChange", "PERSONAL_DATA.RowInit"],
-            ChildPaneHint: "The middle pane will narrow to component pages, actions, and event-level PeopleCode entries.",
-            MetadataTitle: "Selected component metadata",
-            MetadataSummary: "Future read-only metadata will summarize market, portal, component structure, and the selected event context before source is shown.",
-            SourcePaneTitle: "PeopleCode Source Preview",
-            SourcePreviewText: "/* Component mode placeholder */\r\n/* Read-only component browsing is coming next. */\r\n\r\n/* Planned focus: components, pages, and component-event source preview. */"));
+    private readonly ComponentPeopleCodeBrowserView _componentView = new();
     private bool _isUpdatingModeSelection;
 
     public PeopleCodeInterfaceView()
@@ -46,6 +30,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         _appEngineView.SetSession(session);
         _recordView.SetSession(session);
         _pageView.SetSession(session);
+        _componentView.SetSession(session);
     }
 
     public void ShowAppPackage()
@@ -79,7 +64,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
     public void ShowComponent()
     {
         SetSelectedMode(ComponentMode);
-        ModeSummaryTextBlock.Text = "Preview the Component browsing shell with component-oriented search controls, pane layout, and read-only implementation notes while Oracle-backed browsing is added next.";
+        ModeSummaryTextBlock.Text = "Browse read-only Component PeopleCode by component and item/event within the verified Oracle-backed OBJECTID1=10 subset, and search source text across that same subset.";
         ModeContentHost.Content = _componentView;
     }
 
