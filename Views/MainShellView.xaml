@@ -125,6 +125,37 @@
                     </NavigationViewItem>
                 </NavigationView.MenuItems>
 
+                <NavigationView.PaneFooter>
+                    <Grid Margin="8,0,8,8">
+                        <Border x:Name="ExpandedObjectStatusBorder"
+                                Padding="12"
+                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Object Status"
+                                           Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                <StackPanel x:Name="ObjectStatusPanel"
+                                            Spacing="6" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border x:Name="CompactObjectStatusBorder"
+                                Width="40"
+                                Padding="4"
+                                HorizontalAlignment="Center"
+                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="18"
+                                Visibility="Collapsed">
+                            <StackPanel x:Name="CompactObjectStatusPanel"
+                                        Spacing="4" />
+                        </Border>
+                    </Grid>
+                </NavigationView.PaneFooter>
+
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -141,38 +172,6 @@
                                     x:Name="ContentHost" />
                 </Grid>
             </NavigationView>
-
-            <Border x:Name="ExpandedObjectStatusBorder"
-                    Width="296"
-                    Margin="12,20,0,12"
-                    Padding="12"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Bottom"
-                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="Object Status"
-                               Style="{ThemeResource BodyStrongTextBlockStyle}" />
-                    <StackPanel x:Name="ObjectStatusPanel"
-                                Spacing="6" />
-                </StackPanel>
-            </Border>
-
-            <Border x:Name="CompactObjectStatusBorder"
-                    Margin="4,20,0,12"
-                    Padding="4"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Bottom"
-                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="18"
-                    Visibility="Collapsed">
-                <StackPanel x:Name="CompactObjectStatusPanel"
-                            Spacing="4" />
-            </Border>
         </Grid>
     </Grid>
 </UserControl>

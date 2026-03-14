@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using PeopleCodeIDECompanion.Models;
 using PeopleCodeIDECompanion.Services;
 using Windows.ApplicationModel.DataTransfer;
@@ -30,6 +31,9 @@ public sealed partial class MainShellView : UserControl
     private readonly long _isPaneOpenCallbackToken;
     private INotifyCollectionChanged? _currentStatusCollection;
     private readonly List<PeopleCodeObjectStatusItem> _trackedStatuses = [];
+    private Storyboard? _paneFooterStoryboard;
+    private bool _paneFooterInitialized;
+    private bool _pendingPaneFooterExpandedState;
 
     public MainShellView()
     {
@@ -47,11 +51,11 @@ public sealed partial class MainShellView : UserControl
 
         _isPaneOpenCallbackToken = AppNavigationView.RegisterPropertyChangedCallback(
             NavigationView.IsPaneOpenProperty,
-            (_, _) => UpdatePaneFooterLayout());
+            (_, _) => UpdatePaneFooterLayout(animate: true));
         KeyDown += MainShellView_KeyDown;
         Loaded += MainShellView_Loaded;
         Unloaded += MainShellView_Unloaded;
-        UpdatePaneFooterLayout();
+        UpdatePaneFooterLayout(animate: false);
 
         ContentHost.Content = _peopleCodeInterfaceView;
         AppNavigationView.SelectedItem = PeopleCodeInterfaceNavigationItem;
@@ -395,11 +399,19 @@ public sealed partial class MainShellView : UserControl
         return button;
     }
 
-    private void UpdatePaneFooterLayout()
+    private void UpdatePaneFooterLayout(bool animate = false)
     {
         bool showExpandedFooter = AppNavigationView.IsPaneOpen;
-        ExpandedObjectStatusBorder.Visibility = showExpandedFooter ? Visibility.Visible : Visibility.Collapsed;
-        CompactObjectStatusBorder.Visibility = showExpandedFooter ? Visibility.Collapsed : Visibility.Visible;
+
+        if (!_paneFooterInitialized || !animate)
+        {
+            ApplyPaneFooterState(showExpandedFooter);
+            _paneFooterInitialized = true;
+        }
+        else
+        {
+            AnimatePaneFooterState(showExpandedFooter);
+        }
 
         foreach (PeopleCodeObjectStatusItem status in ObjectStatuses)
         {
@@ -412,6 +424,59 @@ public sealed partial class MainShellView : UserControl
                 }
             }
         }
+    }
+
+    private void AnimatePaneFooterState(bool showExpandedFooter)
+    {
+        _pendingPaneFooterExpandedState = showExpandedFooter;
+        _paneFooterStoryboard?.Stop();
+
+        ExpandedObjectStatusBorder.Visibility = Visibility.Visible;
+        CompactObjectStatusBorder.Visibility = Visibility.Visible;
+
+        DoubleAnimation expandedAnimation = new()
+        {
+            To = showExpandedFooter ? 1d : 0d,
+            Duration = new Duration(TimeSpan.FromMilliseconds(180)),
+            EnableDependentAnimation = true
+        };
+        Storyboard.SetTarget(expandedAnimation, ExpandedObjectStatusBorder);
+        Storyboard.SetTargetProperty(expandedAnimation, nameof(Opacity));
+
+        DoubleAnimation compactAnimation = new()
+        {
+            To = showExpandedFooter ? 0d : 1d,
+            Duration = new Duration(TimeSpan.FromMilliseconds(180)),
+            EnableDependentAnimation = true
+        };
+        Storyboard.SetTarget(compactAnimation, CompactObjectStatusBorder);
+        Storyboard.SetTargetProperty(compactAnimation, nameof(Opacity));
+
+        Storyboard storyboard = new();
+        storyboard.Children.Add(expandedAnimation);
+        storyboard.Children.Add(compactAnimation);
+        storyboard.Completed += PaneFooterStoryboard_Completed;
+        _paneFooterStoryboard = storyboard;
+        storyboard.Begin();
+    }
+
+    private void PaneFooterStoryboard_Completed(object? sender, object e)
+    {
+        if (sender is Storyboard storyboard)
+        {
+            storyboard.Completed -= PaneFooterStoryboard_Completed;
+        }
+
+        ApplyPaneFooterState(_pendingPaneFooterExpandedState);
+        _paneFooterStoryboard = null;
+    }
+
+    private void ApplyPaneFooterState(bool showExpandedFooter)
+    {
+        ExpandedObjectStatusBorder.Opacity = showExpandedFooter ? 1d : 0d;
+        CompactObjectStatusBorder.Opacity = showExpandedFooter ? 0d : 1d;
+        ExpandedObjectStatusBorder.Visibility = showExpandedFooter ? Visibility.Visible : Visibility.Collapsed;
+        CompactObjectStatusBorder.Visibility = showExpandedFooter ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void NavigateTo(string destination)
