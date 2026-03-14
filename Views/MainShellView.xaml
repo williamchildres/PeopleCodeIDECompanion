@@ -19,13 +19,21 @@
                     <SymbolIcon Symbol="World" />
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
-            <NavigationViewItem x:Name="AppPackageBrowserNavigationItem"
-                                Content="App Package Browser"
-                                Tag="AppPackageBrowser"
-                                IsEnabled="False">
+            <NavigationViewItem x:Name="PeopleCodeInterfaceNavigationItem"
+                                Content="PeopleCode Interface"
+                                SelectsOnInvoked="False">
                 <NavigationViewItem.Icon>
                     <SymbolIcon Symbol="Document" />
                 </NavigationViewItem.Icon>
+                <NavigationViewItem.MenuItems>
+                    <NavigationViewItem x:Name="AppPackageNavigationItem"
+                                        Content="App Package"
+                                        Tag="PeopleCodeInterface.AppPackage"
+                                        IsEnabled="False" />
+                    <NavigationViewItem x:Name="AppEngineNavigationItem"
+                                        Content="App Engine"
+                                        Tag="PeopleCodeInterface.AppEngine" />
+                </NavigationViewItem.MenuItems>
             </NavigationViewItem>
             <NavigationViewItem Content="Reference Explorer"
                                 Tag="ReferenceExplorer">

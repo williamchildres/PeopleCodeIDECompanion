@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="PeopleCodeIDECompanion.Views.AppEnginePlaceholderView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid RowSpacing="16"
+          ColumnSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="320" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Row="0"
+                Grid.ColumnSpan="2"
+                Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16">
+            <StackPanel Spacing="8">
+                <TextBlock Text="App Engine"
+                           Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <TextBlock Text="Placeholder structure for future App Engine browsing and search. Inputs and results are intentionally separate from the App Package workflow."
+                           TextWrapping="WrapWholeWords"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock x:Name="ConnectionStateTextBlock"
+                           Text="No Oracle connection has been passed into this mode yet."
+                           TextWrapping="WrapWholeWords" />
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1"
+                Grid.Column="0"
+                Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16">
+            <StackPanel Spacing="12">
+                <TextBlock Text="Browse/Search Inputs"
+                           Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <TextBox Header="App Engine Name"
+                         PlaceholderText="AE_SAMPLE_PROCESS" />
+                <TextBox Header="Section"
+                         PlaceholderText="MAIN" />
+                <TextBox Header="Step / Action"
+                         PlaceholderText="STEP01 / SQL" />
+                <TextBox Header="PeopleCode Search"
+                         PlaceholderText="Search App Engine PeopleCode" />
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                    <Button Content="Search"
+                            IsEnabled="False" />
+                    <Button Content="Clear"
+                            IsEnabled="False" />
+                </StackPanel>
+                <TextBlock Text="This mode is a placeholder. Oracle-backed App Engine queries are not implemented yet."
+                           TextWrapping="WrapWholeWords"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1"
+                Grid.Column="1"
+                Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16">
+            <Grid RowSpacing="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Results / Details"
+                           Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                <TextBlock Grid.Row="1"
+                           Text="Future App Engine results can show program structure, matching sections/actions, and source preview here."
+                           TextWrapping="WrapWholeWords"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                <Border Grid.Row="2"
+                        Background="{ThemeResource ControlFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="12">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="No App Engine results yet."
+                                   Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="This reserved area will hold browse results, metadata, and PeopleCode source when App Engine support is implemented."
+                                   TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

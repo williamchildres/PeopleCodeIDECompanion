@@ -135,7 +135,7 @@
                         Content="Test Connection"
                         Click="TestConnectionButton_Click" />
                 <Button x:Name="OpenBrowserButton"
-                        Content="Open App Package Browser"
+                        Content="Open PeopleCode Interface"
                         Click="OpenBrowserButton_Click"
                         IsEnabled="False" />
             </StackPanel>

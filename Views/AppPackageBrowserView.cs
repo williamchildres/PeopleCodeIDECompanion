@@ -240,7 +240,7 @@ public sealed class AppPackageBrowserView : UserControl
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         StackPanel titleStack = new() { Spacing = 6 };
-        TextBlock title = new() { Text = "App Package Browser" };
+        TextBlock title = new() { Text = "App Package" };
         title.Style = Application.Current.Resources["TitleTextBlockStyle"] as Style;
         titleStack.Children.Add(title);
         titleStack.Children.Add(_connectionSummaryTextBlock);
