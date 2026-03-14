@@ -14,6 +14,7 @@ jobs:
       CONFIGURATION: Release
       PLATFORM: x64
       PROJECT_PATH: PeopleCodeIDECompanion.csproj
+      PUBLISH_PROFILE: Properties/PublishProfiles/win-x64.pubxml
 
     steps:
       - name: Checkout repository
@@ -51,13 +52,16 @@ jobs:
           "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
           "cer_path=$cerPath" >> $env:GITHUB_OUTPUT
 
-      - name: Build and package MSIX
+      - name: Publish self-contained signed MSIX
         run: >
-          dotnet build $env:PROJECT_PATH
+          dotnet publish $env:PROJECT_PATH
           -c $env:CONFIGURATION
           -p:Platform=$env:PLATFORM
+          -p:PublishProfile=$env:PUBLISH_PROFILE
           -p:GenerateAppxPackageOnBuild=true
           -p:AppxPackageSigningEnabled=true
+          -p:WindowsAppSDKSelfContained=true
+          -p:WindowsAppSdkUndockedRegFreeWinRTInitialize=true
           -p:PackageCertificateThumbprint=${{ steps.signing.outputs.thumbprint }}
 
       - name: Collect packaged outputs
