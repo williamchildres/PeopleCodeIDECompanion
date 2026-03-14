@@ -61,7 +61,10 @@ jobs:
           -p:GenerateAppxPackageOnBuild=true
           -p:AppxPackageSigningEnabled=true
           -p:WindowsAppSDKSelfContained=true
-          -p:WindowsAppSdkUndockedRegFreeWinRTInitialize=true
+          -p:WindowsAppSdkBootstrapInitialize=false
+          -p:WindowsAppSdkDeploymentManagerInitialize=false
+          -p:WindowsAppSdkUndockedRegFreeWinRTInitialize=false
+          -p:WindowsAppSdkAutoInitialize=false
           -p:PackageCertificateThumbprint=${{ steps.signing.outputs.thumbprint }}
 
       - name: Collect packaged outputs
