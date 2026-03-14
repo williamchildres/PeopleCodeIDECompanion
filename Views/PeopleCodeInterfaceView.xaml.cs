@@ -136,7 +136,6 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
 
         workspace.CurrentMode = mode;
         SetSelectedMode(mode);
-        ModeSummaryTextBlock.Text = GetModeSummary(mode);
         ModeContentHost.Content = workspace.GetContentForMode(mode);
         UpdateModeContentLayout();
         return await workspace.OpenItemAsync(mode, sourceKey);
@@ -247,12 +246,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         {
             RebindWorkspaceStatusSubscriptions();
             ModeContentHost.Content = null;
-            ModeSummaryTextBlock.Text = "Connect to at least one Oracle profile to browse read-only PeopleCode objects.";
-            ConnectedProfilesSummaryTextBlock.Text = ConnectedProfiles.Count == 0
-                ? "No active database sessions."
-                : $"{ConnectedProfiles.Count} active database session(s).";
-            ConnectionSummaryTextBlock.Text = "No database selected";
-            LastRefreshSummaryTextBlock.Text = "Last refresh: not loaded";
+            UpdateHeaderContextSummary(null, Array.Empty<PeopleCodeObjectStatusItem>());
             UpdateWorkspaceStatusSummary();
             ActiveWorkspaceChanged?.Invoke(this, EventArgs.Empty);
             return;
@@ -260,13 +254,7 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
 
         RebindWorkspaceStatusSubscriptions();
         SetSelectedMode(workspace.CurrentMode);
-        ModeSummaryTextBlock.Text = GetModeSummary(workspace.CurrentMode);
-        ConnectedProfilesSummaryTextBlock.Text = ConnectedProfiles.Count == 1
-            ? "1 active database session."
-            : $"{ConnectedProfiles.Count} active database sessions.";
-        ActiveProfileSummaryTextBlock.Text = BuildActiveProfileSummary(workspace.Session);
-        ConnectionSummaryTextBlock.Text = BuildConnectionSummary(workspace.Session);
-        LastRefreshSummaryTextBlock.Text = BuildLastRefreshSummary(workspace.StatusStore.Items);
+        UpdateHeaderContextSummary(workspace.Session, workspace.StatusStore.Items);
         ModeContentHost.Content = workspace.GetContentForMode(workspace.CurrentMode);
         UpdateModeContentLayout();
         UpdateWorkspaceStatusSummary();
@@ -332,7 +320,6 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
 
         workspace.CurrentMode = mode;
         SetSelectedMode(mode);
-        ModeSummaryTextBlock.Text = GetModeSummary(mode);
         ModeContentHost.Content = workspace.GetContentForMode(mode);
         UpdateModeContentLayout();
     }
@@ -381,33 +368,41 @@ public sealed partial class PeopleCodeInterfaceView : UserControl
         ProfileComboBox.IsEnabled = hasProfiles;
         ObjectTypeComboBox.IsEnabled = hasProfiles;
         RefreshModeButton.IsEnabled = hasProfiles;
-        ActiveProfileSummaryTextBlock.Text = _sessionManager.SelectedSession is null
-            ? "No database selected."
-            : BuildActiveProfileSummary(_sessionManager.SelectedSession);
-        ConnectionSummaryTextBlock.Text = _sessionManager.SelectedSession is null
-            ? "No active connection"
-            : BuildConnectionSummary(_sessionManager.SelectedSession);
-        LastRefreshSummaryTextBlock.Text = BuildLastRefreshSummary(ObjectStatuses);
-        if (!hasProfiles)
-        {
-            ConnectedProfilesSummaryTextBlock.Text = "No active database sessions.";
-        }
-
+        UpdateHeaderContextSummary(_sessionManager.SelectedSession, ObjectStatuses);
         UpdateWorkspaceStatusSummary();
     }
 
-    private static string GetModeSummary(string mode)
+    private void UpdateHeaderContextSummary(
+        OracleConnectionSession? session,
+        IEnumerable<PeopleCodeObjectStatusItem> statuses)
     {
-        return mode switch
+        string summary = BuildHeaderContextSummary(session, ConnectedProfiles.Count, statuses);
+        HeaderContextSummaryTextBlock.Text = summary;
+        ToolTipService.SetToolTip(HeaderContextSummaryTextBlock, summary);
+    }
+
+    private static string BuildHeaderContextSummary(
+        OracleConnectionSession? session,
+        int activeSessionCount,
+        IEnumerable<PeopleCodeObjectStatusItem> statuses)
+    {
+        List<string> parts = [];
+
+        if (session is null)
         {
-            AppPackageMode => "Packages and entries",
-            AllObjectsMode => "Search-first workspace",
-            AppEngineMode => "Programs and items",
-            RecordMode => "Records and events",
-            PageMode => "Pages and events",
-            ComponentMode => "Components and events",
-            _ => "Browse read-only PeopleCode objects."
-        };
+            parts.Add(activeSessionCount == 0
+                ? "No active database sessions"
+                : $"{activeSessionCount} active database session{(activeSessionCount == 1 ? string.Empty : "s")}");
+            parts.Add("No database selected");
+            parts.Add("Last refresh: not loaded");
+            return string.Join("  •  ", parts);
+        }
+
+        parts.Add(BuildActiveProfileSummary(session));
+        parts.Add(BuildConnectionSummary(session));
+        parts.Add($"{activeSessionCount} active database session{(activeSessionCount == 1 ? string.Empty : "s")}");
+        parts.Add(BuildLastRefreshSummary(statuses));
+        return string.Join("  •  ", parts);
     }
 
     private static string BuildLastRefreshSummary(IEnumerable<PeopleCodeObjectStatusItem> statuses)

@@ -26,74 +26,24 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <Grid RowSpacing="4">
+            <Grid RowSpacing="3"
+                  HorizontalAlignment="Left"
+                  MaxWidth="760">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <Grid ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                <TextBlock Text="PeopleCode Interface"
+                           Style="{ThemeResource SubtitleTextBlockStyle}" />
 
-                    <TextBlock Text="PeopleCode Interface"
-                               Style="{ThemeResource SubtitleTextBlockStyle}" />
-
-                    <TextBlock x:Name="ModeSummaryTextBlock"
-                               Grid.Column="1"
-                               VerticalAlignment="Center"
-                               TextWrapping="WrapWholeWords"
-                               Style="{ThemeResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </Grid>
-
-                <Grid Grid.Row="1"
-                      ColumnSpacing="12"
-                      RowSpacing="2">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock x:Name="ActiveProfileSummaryTextBlock"
-                               Style="{ThemeResource BodyStrongTextBlockStyle}"
-                               TextWrapping="WrapWholeWords" />
-
-                    <TextBlock Grid.Column="1"
-                               Text="|"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-
-                    <TextBlock x:Name="ConnectedProfilesSummaryTextBlock"
-                               Grid.Column="2"
-                               Style="{ThemeResource CaptionTextBlockStyle}"
-                               TextWrapping="WrapWholeWords"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-
-                    <TextBlock x:Name="ConnectionSummaryTextBlock"
-                               Grid.Row="1"
-                               Style="{ThemeResource CaptionTextBlockStyle}"
-                               TextWrapping="WrapWholeWords"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-
-                    <TextBlock Grid.Row="1"
-                               Grid.Column="1"
-                               Text="|"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-
-                    <TextBlock x:Name="LastRefreshSummaryTextBlock"
-                               Grid.Row="1"
-                               Grid.Column="2"
-                               Style="{ThemeResource CaptionTextBlockStyle}"
-                               TextWrapping="WrapWholeWords"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </Grid>
+                <TextBlock x:Name="HeaderContextSummaryTextBlock"
+                           Grid.Row="1"
+                           MaxLines="1"
+                           TextTrimming="CharacterEllipsis"
+                           TextWrapping="NoWrap"
+                           Style="{ThemeResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </Grid>
 
             <StackPanel Grid.Column="1"
