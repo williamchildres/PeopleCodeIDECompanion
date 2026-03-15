@@ -60,11 +60,6 @@ jobs:
           -p:PublishProfile=$env:PUBLISH_PROFILE
           -p:GenerateAppxPackageOnBuild=true
           -p:AppxPackageSigningEnabled=true
-          -p:WindowsAppSDKSelfContained=true
-          -p:WindowsAppSdkBootstrapInitialize=false
-          -p:WindowsAppSdkDeploymentManagerInitialize=false
-          -p:WindowsAppSdkUndockedRegFreeWinRTInitialize=false
-          -p:WindowsAppSdkAutoInitialize=false
           -p:PackageCertificateThumbprint=${{ steps.signing.outputs.thumbprint }}
 
       - name: Collect packaged outputs

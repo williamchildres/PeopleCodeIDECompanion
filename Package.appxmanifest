@@ -11,7 +11,7 @@
   <Identity
     Name="899a6941-a878-45ea-9226-c0c1c329b9c3"
     Publisher="CN=PeopleCodeIDECompanion"
-    Version="1.0.0.2" />
+    Version="1.0.0.3" />
 
   <mp:PhoneIdentity PhoneProductId="899a6941-a878-45ea-9226-c0c1c329b9c3" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
