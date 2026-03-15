@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Recovery Baseline (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Recovery Baseline (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
