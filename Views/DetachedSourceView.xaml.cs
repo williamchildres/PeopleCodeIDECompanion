@@ -16,6 +16,7 @@ namespace PeopleCodeIDECompanion.Views;
 
 public sealed partial class DetachedSourceView : UserControl
 {
+    private readonly PeopleCodeAuthoringCapabilityService _capabilityService = new();
     private DetachedPeopleCodeSourceContext _context = new();
     private string _activeSearchText = string.Empty;
     private IReadOnlyList<TextRange> _currentSourceMatchRanges = Array.Empty<TextRange>();
@@ -52,6 +53,7 @@ public sealed partial class DetachedSourceView : UserControl
         MetadataSummaryTextBlock.Text = string.IsNullOrWhiteSpace(_context.MetadataSummary)
             ? "No metadata summary is available for this source."
             : _context.MetadataSummary;
+        ApplyAuthoringState();
         ApplySourceFormatting();
     }
 
@@ -105,6 +107,28 @@ public sealed partial class DetachedSourceView : UserControl
         {
             SourceScrollViewer.ChangeView(0, 0, null, true);
         }
+    }
+
+    private void ApplyAuthoringState()
+    {
+        PeopleCodeAuthoringPresentationState presentationState =
+            _capabilityService.CreatePresentationState(
+                _context.AuthoringCapabilities,
+                _context.SourceIdentity,
+                hasLoadedSource: true);
+
+        SaveButton.IsEnabled = presentationState.IsSaveEnabled;
+        SaveCompileButton.IsEnabled = presentationState.IsSaveCompileEnabled;
+        RevertButton.IsEnabled = presentationState.IsRevertEnabled;
+
+        ToolTipService.SetToolTip(SaveButton, presentationState.SaveToolTip);
+        ToolTipService.SetToolTip(SaveCompileButton, presentationState.SaveCompileToolTip);
+        ToolTipService.SetToolTip(RevertButton, presentationState.RevertToolTip);
+
+        AuthoringSummaryTextBlock.Text = string.IsNullOrWhiteSpace(presentationState.StatusLabel)
+            ? presentationState.Summary
+            : $"{presentationState.StatusLabel}: {presentationState.Summary}";
+        AuthoringDetailTextBlock.Text = presentationState.Detail;
     }
 
     private void RefreshSourceViewerFormatting()

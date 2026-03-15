@@ -22,6 +22,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     private const string EmptyStateMessage = "Enter a search term to search across all supported PeopleCode object types.";
 
     private readonly AllObjectsPeopleCodeBrowserService _browserService = new();
+    private readonly PeopleCodeAuthoringCapabilityService _authoringCapabilityService = new();
     private readonly DetachedSourceWindowManager _detachedSourceWindowManager;
     private readonly PeopleCodeCompareWindowManager _compareWindowManager;
     private readonly List<AllObjectsSearchItem> _allResults = [];
@@ -53,6 +54,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     private int _searchVersion;
     private int _sourceLoadVersion;
     private string _currentSourceText = string.Empty;
+    private PeopleCodeAuthoringCapabilitySnapshot _authoringCapabilities = new();
     private bool _hasLoadedSelectedSource;
     private IReadOnlyList<TextRange> _currentSourceMatchRanges = Array.Empty<TextRange>();
     private int _activeSourceMatchIndex = -1;
@@ -175,6 +177,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
 
         Content = BuildLayout();
         ResetViewState();
+        UpdateAuthoringChrome();
     }
 
     public void SetSession(OracleConnectionSession session)
@@ -182,6 +185,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         _session = session;
         ResetViewState();
         UpdateSearchChrome();
+        _ = LoadAuthoringCapabilitiesAsync();
     }
 
     public void FocusGlobalSearch()
@@ -724,6 +728,7 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
     {
         _openDetachedSourceButton.IsEnabled = CanOpenDetachedSource();
         _metadataHeaderView.OpenButton.IsEnabled = _openDetachedSourceButton.IsEnabled;
+        UpdateAuthoringChrome();
         UpdateCompareChrome();
     }
 
@@ -738,7 +743,9 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
             _metadataHeaderView.UpdatedValueText,
             _currentSourceText,
             _activeSearchText,
-            useSyntaxHighlighting: true);
+            useSyntaxHighlighting: true,
+            sourceIdentity: BuildSourceIdentity(),
+            authoringCapabilities: _authoringCapabilities);
     }
 
     private bool CanCompareSource()
@@ -768,7 +775,9 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
             {
                 Identity = new PeopleCodeSourceIdentity
                 {
+                    ProfileId = _session.ProfileId,
                     ObjectType = _selectedItem.ObjectType,
+                    ObjectTitle = _metadataHeaderView.TitleText,
                     SourceKey = _selectedItem.SourceKey
                 },
                 ObjectTitle = _metadataHeaderView.TitleText,
@@ -948,5 +957,34 @@ public sealed class AllObjectsPeopleCodeBrowserView : UserControl
         double horizontalOffset = Math.Max(0d, (scrollableWidth * targetColumnRatio) - horizontalPadding);
 
         _sourceScrollViewer.ChangeView(horizontalOffset, verticalOffset, null, false);
+    }
+
+    private async Task LoadAuthoringCapabilitiesAsync()
+    {
+        _authoringCapabilities = await _authoringCapabilityService.GetCurrentAsync();
+        UpdateAuthoringChrome();
+    }
+
+    private void UpdateAuthoringChrome()
+    {
+        _metadataHeaderView.SetAuthoringState(
+            _authoringCapabilityService.CreatePresentationState(
+                _authoringCapabilities,
+                _selectedItem is not null ? BuildSourceIdentity() : null,
+                _selectedItem is not null && _hasLoadedSelectedSource));
+    }
+
+    private PeopleCodeSourceIdentity BuildSourceIdentity()
+    {
+        return new PeopleCodeSourceIdentity
+        {
+            ProfileId = _session?.ProfileId ?? string.Empty,
+            ObjectType = _selectedItem?.ObjectType ?? "PeopleCode",
+            ObjectTitle = _metadataHeaderView.TitleText,
+            SourceKey = _selectedItem?.SourceKey ?? new object(),
+            AuthoritativeIdentity = _selectedItem?.SourceKey is AppPackageEntry appPackageEntry
+                ? appPackageEntry.AuthoritativeIdentity
+                : null
+        };
     }
 }

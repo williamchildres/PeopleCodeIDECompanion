@@ -19,6 +19,7 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
     private const int GlobalSearchResultLimit = 200;
 
     private readonly PagePeopleCodeBrowserService _browserService = new();
+    private readonly PeopleCodeAuthoringCapabilityService _authoringCapabilityService = new();
     private readonly PeopleSoftUserNameResolverService _userNameResolver = new();
     private readonly DetachedSourceWindowManager _detachedSourceWindowManager;
     private readonly PeopleCodeCompareWindowManager _compareWindowManager;
@@ -37,6 +38,7 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
     private bool _isGlobalSearchMode;
     private string _activeGlobalSearchText = string.Empty;
     private string _currentSourceText = string.Empty;
+    private PeopleCodeAuthoringCapabilitySnapshot _authoringCapabilities = new();
     private bool _hasLoadedSelectedSource;
     private IReadOnlyList<TextRange> _currentSourceMatchRanges = Array.Empty<TextRange>();
     private int _activeSourceMatchIndex = -1;
@@ -56,6 +58,7 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
         SetMetadata(null);
         UpdateGlobalSearchChrome();
         UpdateSourceMatchChrome();
+        UpdateAuthoringChrome();
     }
 
     public void SetSession(OracleConnectionSession session)
@@ -63,6 +66,7 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
         _session = session;
         GlobalSourceSearchButton.IsEnabled = true;
         _statusStore?.SetSessionAvailable(AllObjectsPeopleCodeBrowserService.PageMode, hasSession: true);
+        _ = LoadAuthoringCapabilitiesAsync();
         _ = LoadItemsAsync();
     }
 
@@ -863,6 +867,7 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
     private void UpdateDetachedSourceChrome()
     {
         MetadataHeaderView.OpenButton.IsEnabled = CanOpenDetachedSource();
+        UpdateAuthoringChrome();
         UpdateCompareChrome();
     }
 
@@ -877,7 +882,9 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
             MetadataHeaderView.UpdatedValueText,
             _currentSourceText,
             _isGlobalSearchMode ? _activeGlobalSearchText : null,
-            useSyntaxHighlighting: true);
+            useSyntaxHighlighting: true,
+            sourceIdentity: BuildSourceIdentity(),
+            authoringCapabilities: _authoringCapabilities);
     }
 
     private bool CanCompareSource()
@@ -888,6 +895,32 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
     private void UpdateCompareChrome()
     {
         MetadataHeaderView.CompareButton.IsEnabled = CanCompareSource();
+    }
+
+    private async Task LoadAuthoringCapabilitiesAsync()
+    {
+        _authoringCapabilities = await _authoringCapabilityService.GetCurrentAsync();
+        UpdateAuthoringChrome();
+    }
+
+    private void UpdateAuthoringChrome()
+    {
+        MetadataHeaderView.SetAuthoringState(
+            _authoringCapabilityService.CreatePresentationState(
+                _authoringCapabilities,
+                _selectedItem is not null ? BuildSourceIdentity() : null,
+                _selectedItem is not null && _hasLoadedSelectedSource));
+    }
+
+    private PeopleCodeSourceIdentity BuildSourceIdentity()
+    {
+        return new PeopleCodeSourceIdentity
+        {
+            ProfileId = _session?.ProfileId ?? string.Empty,
+            ObjectType = AllObjectsPeopleCodeBrowserService.PageMode,
+            ObjectTitle = MetadataHeaderView.TitleText,
+            SourceKey = _selectedItem ?? new object()
+        };
     }
 
     private PeopleCodeCompareRequest? BuildCompareRequest(OracleConnectionSession comparisonProfile)
@@ -906,7 +939,9 @@ public sealed partial class PagePeopleCodeBrowserView : UserControl
             {
                 Identity = new PeopleCodeSourceIdentity
                 {
+                    ProfileId = _session.ProfileId,
                     ObjectType = AllObjectsPeopleCodeBrowserService.PageMode,
+                    ObjectTitle = MetadataHeaderView.TitleText,
                     SourceKey = _selectedItem
                 },
                 ObjectTitle = MetadataHeaderView.TitleText,

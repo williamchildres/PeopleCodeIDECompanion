@@ -21,6 +21,7 @@ public sealed class AppPackageBrowserView : UserControl
     private const int GlobalSearchResultLimit = 200;
 
     private readonly AppPackageBrowserService _browserService = new();
+    private readonly PeopleCodeAuthoringCapabilityService _authoringCapabilityService = new();
     private readonly DetachedSourceWindowManager _detachedSourceWindowManager;
     private readonly PeopleCodeCompareWindowManager _compareWindowManager;
     private readonly List<string> _allPackageRoots = [];
@@ -64,6 +65,7 @@ public sealed class AppPackageBrowserView : UserControl
     private string _activeGlobalSearchText = string.Empty;
     private string _currentSourceText = string.Empty;
     private bool _currentSourceUsesSyntaxHighlighting;
+    private PeopleCodeAuthoringCapabilitySnapshot _authoringCapabilities = new();
     private bool _hasLoadedSelectedSource;
     private IReadOnlyList<TextRange> _currentSourceMatchRanges = Array.Empty<TextRange>();
     private int _activeSourceMatchIndex = -1;
@@ -226,6 +228,7 @@ public sealed class AppPackageBrowserView : UserControl
         SetMetadata(null);
         UpdateGlobalSearchChrome();
         UpdateSourceMatchChrome();
+        UpdateAuthoringChrome();
     }
 
     public void SetSession(OracleConnectionSession session)
@@ -234,6 +237,7 @@ public sealed class AppPackageBrowserView : UserControl
         _refreshButton.IsEnabled = true;
         _globalSourceSearchButton.IsEnabled = true;
         _statusStore?.SetSessionAvailable(AllObjectsPeopleCodeBrowserService.AppPackageMode, hasSession: true);
+        _ = LoadAuthoringCapabilitiesAsync();
         _ = LoadEntriesAsync();
     }
 
@@ -985,6 +989,12 @@ public sealed class AppPackageBrowserView : UserControl
     private static bool EntriesMatch(AppPackageEntry left, AppPackageEntry right)
     {
         return left.PackageRoot.Equals(right.PackageRoot, StringComparison.OrdinalIgnoreCase)
+            && left.ObjectId2 == right.ObjectId2
+            && left.ObjectId3 == right.ObjectId3
+            && left.ObjectId4 == right.ObjectId4
+            && left.ObjectId5 == right.ObjectId5
+            && left.ObjectId6 == right.ObjectId6
+            && left.ObjectId7 == right.ObjectId7
             && left.ObjectValue2.Equals(right.ObjectValue2, StringComparison.OrdinalIgnoreCase)
             && left.ObjectValue3.Equals(right.ObjectValue3, StringComparison.OrdinalIgnoreCase)
             && left.ObjectValue4.Equals(right.ObjectValue4, StringComparison.OrdinalIgnoreCase)
@@ -1148,12 +1158,24 @@ public sealed class AppPackageBrowserView : UserControl
         _metadataHeaderView.SetTitle(entry.DisplayName);
         _metadataHeaderView.SetTypeText(entry.EntryType);
         _metadataHeaderView.SetKeysText(JoinMetadataParts(
+            ("OBJECTID2", entry.ObjectId2.ToString()),
+            ("OBJECTID3", entry.ObjectId3.ToString()),
+            ("OBJECTID4", entry.ObjectId4.ToString()),
+            ("OBJECTID5", entry.ObjectId5.ToString()),
+            ("OBJECTID6", entry.ObjectId6.ToString()),
+            ("OBJECTID7", entry.ObjectId7.ToString()),
             ("OBJECTVALUE2", entry.ObjectValue2),
             ("OBJECTVALUE3", entry.ObjectValue3),
             ("OBJECTVALUE4", entry.ObjectValue4),
             ("OBJECTVALUE5", entry.ObjectValue5),
             ("OBJECTVALUE6", entry.ObjectValue6),
-            ("OBJECTVALUE7", entry.ObjectValue7)));
+            ("OBJECTVALUE7", entry.ObjectValue7),
+            ("AUTHSTORE", entry.AuthoritativeStoreName),
+            ("TEXTSTORE", entry.SourceProjectionStoreName),
+            ("TEXTROWS", entry.TextRowCount.ToString()),
+            ("TEXTSEQ", FormatSequenceRange(entry.TextMinSequence, entry.TextMaxSequence)),
+            ("PROGROWS", entry.ProgramRowCount.ToString()),
+            ("PROGSEQ", FormatSequenceRange(entry.ProgramMinSequence, entry.ProgramMaxSequence))));
         _metadataHeaderView.SetUpdatedText(BuildLastUpdatedText(entry.LastUpdatedBy, entry.LastUpdatedDateTime));
         _ = UpdateMetadataLastUpdatedAsync(entry, metadataVersion);
     }
@@ -1204,6 +1226,13 @@ public sealed class AppPackageBrowserView : UserControl
         return string.IsNullOrWhiteSpace(value) ? "(blank)" : value;
     }
 
+    private static string FormatSequenceRange(int minSequence, int maxSequence)
+    {
+        return minSequence == maxSequence
+            ? minSequence.ToString()
+            : $"{minSequence}-{maxSequence}";
+    }
+
     private static string JoinMetadataParts(params (string Label, string? Value)[] parts)
     {
         return string.Join(
@@ -1222,6 +1251,7 @@ public sealed class AppPackageBrowserView : UserControl
     {
         _openDetachedSourceButton.IsEnabled = CanOpenDetachedSource();
         _metadataHeaderView.OpenButton.IsEnabled = _openDetachedSourceButton.IsEnabled;
+        UpdateAuthoringChrome();
         UpdateCompareChrome();
     }
 
@@ -1236,7 +1266,36 @@ public sealed class AppPackageBrowserView : UserControl
             _metadataHeaderView.UpdatedValueText,
             _currentSourceText,
             _isGlobalSearchMode ? _activeGlobalSearchText : null,
-            _currentSourceUsesSyntaxHighlighting);
+            _currentSourceUsesSyntaxHighlighting,
+            sourceIdentity: BuildSourceIdentity(),
+            authoringCapabilities: _authoringCapabilities);
+    }
+
+    private async Task LoadAuthoringCapabilitiesAsync()
+    {
+        _authoringCapabilities = await _authoringCapabilityService.GetCurrentAsync();
+        UpdateAuthoringChrome();
+    }
+
+    private void UpdateAuthoringChrome()
+    {
+        _metadataHeaderView.SetAuthoringState(
+            _authoringCapabilityService.CreatePresentationState(
+                _authoringCapabilities,
+                _selectedEntry is not null ? BuildSourceIdentity() : null,
+                _selectedEntry is not null && _hasLoadedSelectedSource));
+    }
+
+    private PeopleCodeSourceIdentity BuildSourceIdentity()
+    {
+        return new PeopleCodeSourceIdentity
+        {
+            ProfileId = _session?.ProfileId ?? string.Empty,
+            ObjectType = AllObjectsPeopleCodeBrowserService.AppPackageMode,
+            ObjectTitle = _metadataHeaderView.TitleText,
+            SourceKey = _selectedEntry ?? new object(),
+            AuthoritativeIdentity = _selectedEntry?.AuthoritativeIdentity
+        };
     }
 
     private bool CanCompareSource()
@@ -1266,8 +1325,11 @@ public sealed class AppPackageBrowserView : UserControl
             {
                 Identity = new PeopleCodeSourceIdentity
                 {
+                    ProfileId = _session.ProfileId,
                     ObjectType = AllObjectsPeopleCodeBrowserService.AppPackageMode,
-                    SourceKey = _selectedEntry
+                    ObjectTitle = _metadataHeaderView.TitleText,
+                    SourceKey = _selectedEntry,
+                    AuthoritativeIdentity = _selectedEntry.AuthoritativeIdentity
                 },
                     ObjectTitle = _metadataHeaderView.TitleText,
                     ObjectSubtitle = _metadataHeaderView.TypeValueText,
@@ -1298,14 +1360,21 @@ public sealed class AppPackageBrowserView : UserControl
 
         public int GetHashCode(AppPackageEntry obj)
         {
-            return HashCode.Combine(
-                obj.PackageRoot.ToUpperInvariant(),
-                obj.ObjectValue2.ToUpperInvariant(),
-                obj.ObjectValue3.ToUpperInvariant(),
-                obj.ObjectValue4.ToUpperInvariant(),
-                obj.ObjectValue5.ToUpperInvariant(),
-                obj.ObjectValue6.ToUpperInvariant(),
-                obj.ObjectValue7.ToUpperInvariant());
+            HashCode hash = new();
+            hash.Add(obj.ObjectId2);
+            hash.Add(obj.ObjectId3);
+            hash.Add(obj.ObjectId4);
+            hash.Add(obj.ObjectId5);
+            hash.Add(obj.ObjectId6);
+            hash.Add(obj.ObjectId7);
+            hash.Add(obj.PackageRoot, StringComparer.OrdinalIgnoreCase);
+            hash.Add(obj.ObjectValue2, StringComparer.OrdinalIgnoreCase);
+            hash.Add(obj.ObjectValue3, StringComparer.OrdinalIgnoreCase);
+            hash.Add(obj.ObjectValue4, StringComparer.OrdinalIgnoreCase);
+            hash.Add(obj.ObjectValue5, StringComparer.OrdinalIgnoreCase);
+            hash.Add(obj.ObjectValue6, StringComparer.OrdinalIgnoreCase);
+            hash.Add(obj.ObjectValue7, StringComparer.OrdinalIgnoreCase);
+            return hash.ToHashCode();
         }
     }
 }
