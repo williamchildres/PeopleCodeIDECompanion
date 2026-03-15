@@ -1,9 +1,9 @@
+using Microsoft.UI.Xaml;
 using System;
 using System.Runtime.InteropServices;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using PeopleCodeIDECompanion.Models;
-using Microsoft.UI.Xaml;
 using Windows.UI;
 using WinRT.Interop;
 
