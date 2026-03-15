@@ -1,16 +1,10 @@
 {
   "profiles": {
-    "PeopleCodeIDECompanion (Exe)": {
-      "commandName": "Executable",
-      "executablePath": "C:\\Users\\willi\\Documents\\CodexProjects\\PeopleCodeIDECompanion\\bin\\x64\\Debug\\net8.0-windows10.0.19041.0\\win-x64\\PeopleCodeIDECompanion.exe",
-      "workingDirectory": "C:\\Users\\willi\\Documents\\CodexProjects\\PeopleCodeIDECompanion\\bin\\x64\\Debug\\net8.0-windows10.0.19041.0\\win-x64",
-      "nativeDebugging": false
+    "PeopleCodeIDECompanion (Package)": {
+      "commandName": "MsixPackage"
     },
     "PeopleCodeIDECompanion (Unpackaged)": {
       "commandName": "Project"
-    },
-    "PeopleCodeIDECompanion (Package)": {
-      "commandName": "MsixPackage"
     }
   }
 }

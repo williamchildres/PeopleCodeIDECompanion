@@ -21,4 +21,8 @@ public sealed class DetachedPeopleCodeSourceContext
     public string? SearchText { get; init; }
 
     public bool UseSyntaxHighlighting { get; init; } = true;
+
+    public PeopleCodeSourceIdentity SourceIdentity { get; init; } = new();
+
+    public PeopleCodeAuthoringCapabilitySnapshot AuthoringCapabilities { get; init; } = new();
 }

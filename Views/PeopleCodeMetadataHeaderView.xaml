@@ -13,6 +13,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
@@ -29,6 +31,18 @@
                     Orientation="Horizontal"
                     Spacing="8"
                     HorizontalAlignment="Right">
+            <Button x:Name="SaveButtonElement"
+                    Content="Save"
+                    IsEnabled="False" />
+
+            <Button x:Name="SaveCompileButtonElement"
+                    Content="Save + Compile"
+                    IsEnabled="False" />
+
+            <Button x:Name="RevertButtonElement"
+                    Content="Revert"
+                    IsEnabled="False" />
+
             <Button x:Name="OpenButtonElement"
                     Content="Open"
                     IsEnabled="False"
@@ -62,5 +76,19 @@
                        HorizontalAlignment="Right"
                        TextWrapping="WrapWholeWords" />
         </Grid>
+
+        <TextBlock x:Name="AuthoringSummaryTextBlock"
+                   Grid.Row="3"
+                   Grid.ColumnSpan="2"
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                   TextWrapping="WrapWholeWords"
+                   Visibility="Collapsed" />
+
+        <TextBlock x:Name="AuthoringDetailTextBlock"
+                   Grid.Row="4"
+                   Grid.ColumnSpan="2"
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                   TextWrapping="WrapWholeWords"
+                   Visibility="Collapsed" />
     </Grid>
 </UserControl>

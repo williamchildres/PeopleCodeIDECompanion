@@ -44,6 +44,35 @@
                                Text="Read-only" />
                 </Grid>
 
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button x:Name="SaveButton"
+                            Content="Save"
+                            IsEnabled="False" />
+
+                    <Button x:Name="SaveCompileButton"
+                            Grid.Column="1"
+                            Content="Save + Compile"
+                            IsEnabled="False" />
+
+                    <Button x:Name="RevertButton"
+                            Grid.Column="2"
+                            Content="Revert"
+                            IsEnabled="False" />
+
+                    <TextBlock x:Name="AuthoringSummaryTextBlock"
+                               Grid.Column="3"
+                               VerticalAlignment="Center"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="WrapWholeWords" />
+                </Grid>
+
                 <TextBlock x:Name="ProfileContextTextBlock"
                            TextWrapping="WrapWholeWords"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -54,6 +83,10 @@
 
                 <TextBlock x:Name="MetadataSummaryTextBlock"
                            TextWrapping="WrapWholeWords" />
+
+                <TextBlock x:Name="AuthoringDetailTextBlock"
+                           TextWrapping="WrapWholeWords"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </StackPanel>
         </Border>
 

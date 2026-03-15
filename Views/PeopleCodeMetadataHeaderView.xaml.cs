@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
+using PeopleCodeIDECompanion.Models;
 
 namespace PeopleCodeIDECompanion.Views;
 
@@ -24,6 +25,12 @@ public sealed partial class PeopleCodeMetadataHeaderView : UserControl
     public Button OpenButton => OpenButtonElement;
 
     public Button CompareButton => CompareButtonElement;
+
+    public Button SaveButton => SaveButtonElement;
+
+    public Button SaveCompileButton => SaveCompileButtonElement;
+
+    public Button RevertButton => RevertButtonElement;
 
     public string TitleText => TitleTextBlock.Text;
 
@@ -61,6 +68,30 @@ public sealed partial class PeopleCodeMetadataHeaderView : UserControl
         KeysValueText = value ?? string.Empty;
         SetLabeledText(KeysTextBlock, label, KeysValueText, _primaryBrush);
         KeysTextBlock.Visibility = string.IsNullOrWhiteSpace(KeysValueText) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    public void SetAuthoringState(PeopleCodeAuthoringPresentationState state)
+    {
+        PeopleCodeAuthoringPresentationState normalized = state ?? new PeopleCodeAuthoringPresentationState();
+        SaveButton.IsEnabled = normalized.IsSaveEnabled;
+        SaveCompileButton.IsEnabled = normalized.IsSaveCompileEnabled;
+        RevertButton.IsEnabled = normalized.IsRevertEnabled;
+
+        ToolTipService.SetToolTip(SaveButton, normalized.SaveToolTip);
+        ToolTipService.SetToolTip(SaveCompileButton, normalized.SaveCompileToolTip);
+        ToolTipService.SetToolTip(RevertButton, normalized.RevertToolTip);
+
+        AuthoringSummaryTextBlock.Text = string.IsNullOrWhiteSpace(normalized.StatusLabel)
+            ? normalized.Summary
+            : $"{normalized.StatusLabel}: {normalized.Summary}";
+        AuthoringSummaryTextBlock.Visibility = string.IsNullOrWhiteSpace(AuthoringSummaryTextBlock.Text)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+        AuthoringDetailTextBlock.Text = normalized.Detail;
+        AuthoringDetailTextBlock.Visibility = string.IsNullOrWhiteSpace(normalized.Detail)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
     }
 
     private void UpdateSecondaryRowVisibility()

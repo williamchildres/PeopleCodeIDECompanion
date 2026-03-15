@@ -58,11 +58,20 @@
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">False</PublishTrimmed>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
-    <PackageCertificateKeyFile>PeopleCodeIDECompanion_TemporaryKey.pfx</PackageCertificateKeyFile>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <AppxBundle>Never</AppxBundle>
     <HoursBetweenUpdateChecks>24</HoursBetweenUpdateChecks>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <!-- Avoid stale local PFX failures during packaged debugging. -->
+    <GenerateTemporaryStoreCertificate>true</GenerateTemporaryStoreCertificate>
+    <PackageCertificateKeyFile></PackageCertificateKeyFile>
+    <PackageCertificateThumbprint></PackageCertificateThumbprint>
+    <PackageCertificatePassword></PackageCertificatePassword>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' != 'Debug'">
+    <PackageCertificateKeyFile>PeopleCodeIDECompanion_TemporaryKey.pfx</PackageCertificateKeyFile>
   </PropertyGroup>
 </Project>

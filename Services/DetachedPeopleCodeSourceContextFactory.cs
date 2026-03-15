@@ -16,7 +16,9 @@ public static class DetachedPeopleCodeSourceContextFactory
         string lastUpdatedText,
         string sourceText,
         string? searchText,
-        bool useSyntaxHighlighting)
+        bool useSyntaxHighlighting,
+        PeopleCodeSourceIdentity? sourceIdentity = null,
+        PeopleCodeAuthoringCapabilitySnapshot? authoringCapabilities = null)
     {
         string trimmedTitle = objectTitle?.Trim() ?? string.Empty;
         string trimmedSubtitle = objectSubtitle?.Trim() ?? string.Empty;
@@ -33,7 +35,14 @@ public static class DetachedPeopleCodeSourceContextFactory
             LastUpdatedText = lastUpdatedText?.Trim() ?? string.Empty,
             SourceText = sourceText ?? string.Empty,
             SearchText = string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim(),
-            UseSyntaxHighlighting = useSyntaxHighlighting
+            UseSyntaxHighlighting = useSyntaxHighlighting,
+            SourceIdentity = sourceIdentity ?? new PeopleCodeSourceIdentity
+            {
+                ProfileId = session?.ProfileId ?? string.Empty,
+                ObjectType = objectType?.Trim() ?? string.Empty,
+                ObjectTitle = trimmedTitle
+            },
+            AuthoringCapabilities = authoringCapabilities ?? new PeopleCodeAuthoringCapabilitySnapshot()
         };
     }
 
