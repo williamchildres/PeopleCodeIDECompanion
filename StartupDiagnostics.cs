@@ -1,51 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
-using System.Threading;
-using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml;
-using WinRT;
-
 namespace PeopleCodeIDECompanion;
-
-public static class Program
-{
-    [STAThread]
-    public static void Main(string[] args)
-    {
-        StartupDiagnostics.WriteBreadcrumb("main-entered");
-
-        try
-        {
-            ComWrappersSupport.InitializeComWrappers();
-            StartupDiagnostics.WriteBreadcrumb("com-wrappers-initialized");
-
-            Application.Start(_ =>
-            {
-                StartupDiagnostics.WriteBreadcrumb("application-start-entered");
-
-                try
-                {
-                    var context = new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread());
-                    SynchronizationContext.SetSynchronizationContext(context);
-                    StartupDiagnostics.WriteBreadcrumb("sync-context-set");
-                    new App();
-                    StartupDiagnostics.WriteBreadcrumb("app-constructed");
-                }
-                catch (Exception ex)
-                {
-                    StartupDiagnostics.Log(ex, "Application.Start");
-                    throw;
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            StartupDiagnostics.Log(ex, "Program.Main");
-            throw;
-        }
-    }
-}
 
 internal static class StartupDiagnostics
 {
